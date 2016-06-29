@@ -1,7 +1,6 @@
 package file
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path"
@@ -14,22 +13,34 @@ import (
 )
 
 type Handler struct {
+	Group   *sync.WaitGroup
 	Options *cli.Options
-	Group   sync.WaitGroup
-	Output  *cli.Output
-	Queue   chan string
+	Workers *WorkerQueue
 }
 
 func (this *Handler) Init(options *cli.Options) {
+	var waitGroup sync.WaitGroup
+
 	this.Options = options
-	this.Queue = make(chan string)
-	this.Output = &cli.Output{
-		Console: make(chan cli.Match),
-		Closed:  make(chan bool),
+	this.Group = &waitGroup
+
+	var regex *regexp.Regexp
+
+	if this.Options.Case {
+		regex, _ = regexp.Compile(this.Options.Pattern)
+	} else {
+		regex, _ = regexp.Compile("(?i)" + this.Options.Pattern)
 	}
 
-	for i := 0; i < 100; i++ {
-		go this.worker()
+	this.Workers = &WorkerQueue{
+		Group:   &waitGroup,
+		Input:   make(chan string),
+		Pattern: regex,
+		Closed:  make(chan bool),
+		Output: &cli.Output{
+			Console: make(chan cli.Match),
+			Closed:  make(chan bool),
+		},
 	}
 }
 
@@ -62,60 +73,6 @@ func (this *Handler) handlePath(fullPath string) {
 
 	if matched {
 		this.Group.Add(1)
-		this.Queue <- fullPath
-	}
-}
-
-func (this *Handler) worker() {
-
-	for {
-		fullPath, ok := <-this.Queue
-
-		if !ok {
-			return
-		}
-
-		lines := make([]cli.Line, 0)
-
-		file, err := os.Open(fullPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
-			return
-		}
-
-		var regex *regexp.Regexp
-
-		if this.Options.Case {
-			regex, _ = regexp.Compile(this.Options.Pattern)
-		} else {
-			regex, _ = regexp.Compile("(?i)" + this.Options.Pattern)
-		}
-
-		scanner := bufio.NewScanner(file)
-		var lineNumber int
-		for scanner.Scan() {
-			lineNumber++
-			if regex.MatchString(scanner.Text()) {
-				lines = append(lines, cli.Line{
-					Number: lineNumber,
-					Line:   regex.ReplaceAllString(scanner.Text(), color.RedString("$0")),
-				})
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
-			return
-		}
-
-		if len(lines) > 0 {
-			this.Output.Console <- cli.Match{
-				File:  fullPath,
-				Lines: lines,
-			}
-		}
-
-		file.Close()
-		this.Group.Done()
+		this.Workers.Input <- fullPath
 	}
 }

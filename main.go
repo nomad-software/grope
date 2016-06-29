@@ -23,7 +23,7 @@ func main() {
 	} else {
 		options.Echo()
 
-		go file.Output.Process()
+		go file.Workers.Start()
 
 		err := file.Walk()
 
@@ -34,8 +34,7 @@ func main() {
 
 		file.Group.Wait()
 
-		close(file.Queue)
-		close(file.Output.Console)
-		<-file.Output.Closed
+		close(file.Workers.Input)
+		<-file.Workers.Closed
 	}
 }

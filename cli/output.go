@@ -22,7 +22,7 @@ type Output struct {
 	Closed  chan bool
 }
 
-func (this *Output) Process() {
+func (this *Output) Start() {
 	var total int
 	for match := range this.Console {
 		total++
