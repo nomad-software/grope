@@ -34,6 +34,7 @@ func main() {
 
 		file.Group.Wait()
 
+		close(file.Queue)
 		close(file.Output.Console)
 		<-file.Output.Closed
 	}
