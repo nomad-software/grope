@@ -6,7 +6,7 @@
 ## Example
 
 ```
-grope --dir=~/Code --file=*.php --pattern="^foo$" --case
+grope -dir=~/Code -file=*.go -find="^(foo|bar)$" -case -ignore="^(baz|qux)$"
 ```
 
 ## Help

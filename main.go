@@ -14,13 +14,16 @@ func main() {
 	var options cli.Options
 	options.Parse()
 
-	var file file.Handler
-	file.Init(&options)
-
-	if (!options.Valid()) || options.Help {
+	if options.Help {
 		options.Usage()
 
+	} else if !options.Valid() {
+		return
+
 	} else {
+		var file file.Handler
+		file.Init(&options)
+
 		options.Echo()
 
 		go file.Workers.Start()

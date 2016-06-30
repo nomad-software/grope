@@ -16,26 +16,37 @@ type Handler struct {
 	Group   *sync.WaitGroup
 	Options *cli.Options
 	Workers *WorkerQueue
+	Ignore  *regexp.Regexp
+}
+
+func (this *Handler) compile(pattern string) *regexp.Regexp {
+	var regex *regexp.Regexp
+
+	fmt.Println(pattern)
+
+	if this.Options.Case {
+		regex, _ = regexp.Compile(pattern)
+	} else {
+		regex, _ = regexp.Compile("(?i)" + pattern)
+	}
+
+	return regex
 }
 
 func (this *Handler) Init(options *cli.Options) {
 	var waitGroup sync.WaitGroup
 
-	this.Options = options
 	this.Group = &waitGroup
+	this.Options = options
 
-	var regex *regexp.Regexp
-
-	if this.Options.Case {
-		regex, _ = regexp.Compile(this.Options.Pattern)
-	} else {
-		regex, _ = regexp.Compile("(?i)" + this.Options.Pattern)
+	if this.Options.Ignore != "" {
+		this.Ignore = this.compile(this.Options.Ignore)
 	}
 
 	this.Workers = &WorkerQueue{
 		Group:   &waitGroup,
 		Input:   make(chan string),
-		Pattern: regex,
+		Pattern: this.compile(this.Options.Find),
 		Closed:  make(chan bool),
 		Output: &cli.Output{
 			Console: make(chan cli.Match),
@@ -64,6 +75,10 @@ func (this *Handler) Walk() error {
 
 func (this *Handler) handlePath(fullPath string) {
 	defer this.Group.Done()
+
+	if this.Ignore != nil && this.Ignore.MatchString(fullPath) {
+		return
+	}
 
 	matched, err := filepath.Match(this.Options.File, path.Base(fullPath))
 	if err != nil {
