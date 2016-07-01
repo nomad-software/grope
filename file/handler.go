@@ -19,20 +19,6 @@ type Handler struct {
 	Ignore  *regexp.Regexp
 }
 
-func (this *Handler) compile(pattern string) *regexp.Regexp {
-	var regex *regexp.Regexp
-
-	fmt.Println(pattern)
-
-	if this.Options.Case {
-		regex, _ = regexp.Compile(pattern)
-	} else {
-		regex, _ = regexp.Compile("(?i)" + pattern)
-	}
-
-	return regex
-}
-
 func (this *Handler) Init(options *cli.Options) {
 	var waitGroup sync.WaitGroup
 
@@ -67,13 +53,13 @@ func (this *Handler) Walk() error {
 		}
 
 		this.Group.Add(1)
-		go this.handlePath(fullPath)
+		go this.matchPath(fullPath)
 
 		return nil
 	})
 }
 
-func (this *Handler) handlePath(fullPath string) {
+func (this *Handler) matchPath(fullPath string) {
 	defer this.Group.Done()
 
 	if this.Ignore != nil && this.Ignore.MatchString(fullPath) {
@@ -90,4 +76,16 @@ func (this *Handler) handlePath(fullPath string) {
 		this.Group.Add(1)
 		this.Workers.Input <- fullPath
 	}
+}
+
+func (this *Handler) compile(pattern string) *regexp.Regexp {
+	var regex *regexp.Regexp
+
+	if this.Options.Case {
+		regex, _ = regexp.Compile(pattern)
+	} else {
+		regex, _ = regexp.Compile("(?i)" + pattern)
+	}
+
+	return regex
 }

@@ -19,16 +19,16 @@ type Options struct {
 	Help   bool
 }
 
-func (this *Options) compiles(pattern string) error {
-	var err error
-
-	if this.Case {
-		_, err = regexp.Compile(pattern)
-	} else {
-		_, err = regexp.Compile("(?i)" + pattern)
-	}
-
-	return err
+func (this *Options) Parse() {
+	flag.StringVar(&this.Dir, "dir", ".", "The directory to traverse.")
+	flag.StringVar(&this.File, "file", "*", "The glob file pattern to match.")
+	flag.StringVar(&this.Find, "find", "", "The regex to match text against.")
+	flag.StringVar(&this.Ignore, "ignore", "", "A regex to ignore files or directories.")
+	flag.BoolVar(&this.Case, "case", false, "Use to switch to case sensitive matching.")
+	flag.BoolVar(&this.Help, "help", false, "Show help.")
+	flag.Parse()
+	dir, _ := homedir.Expand(this.Dir)
+	this.Dir = dir
 }
 
 func (this *Options) Valid() bool {
@@ -68,18 +68,6 @@ func (this *Options) Echo() {
 	fmt.Println(options)
 }
 
-func (this *Options) Parse() {
-	flag.StringVar(&this.Dir, "dir", ".", "The directory to traverse.")
-	flag.StringVar(&this.File, "file", "*", "The glob file pattern to match.")
-	flag.StringVar(&this.Find, "find", "", "The regex to match text against.")
-	flag.StringVar(&this.Ignore, "ignore", "", "A regex to ignore files or directories.")
-	flag.BoolVar(&this.Case, "case", false, "Use to switch to case sensitive matching.")
-	flag.BoolVar(&this.Help, "help", false, "Show help.")
-	flag.Parse()
-	dir, _ := homedir.Expand(this.Dir)
-	this.Dir = dir
-}
-
 func (this *Options) Usage() {
 	var banner string = `  ____
  / ___|_ __ ___  _ __   ___
@@ -90,4 +78,16 @@ func (this *Options) Usage() {
 `
 	color.Cyan(banner)
 	flag.Usage()
+}
+
+func (this *Options) compiles(pattern string) error {
+	var err error
+
+	if this.Case {
+		_, err = regexp.Compile(pattern)
+	} else {
+		_, err = regexp.Compile("(?i)" + pattern)
+	}
+
+	return err
 }
