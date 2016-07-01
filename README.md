@@ -6,7 +6,7 @@
 ## Example
 
 ```
-grope -dir=~/Code -file=*.go -find="^(foo|bar)$" -case -ignore="^(baz|qux)$"
+grope -dir="~/Code" -file="*.go" -find="^(foo|bar)$" -case -ignore="^(baz|qux)$"
 ```
 
 ## Help
@@ -14,5 +14,5 @@ grope -dir=~/Code -file=*.go -find="^(foo|bar)$" -case -ignore="^(baz|qux)$"
 Run the following command for help.
 
 ```
-grope --help
+grope -help
 ```
