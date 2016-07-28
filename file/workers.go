@@ -47,7 +47,8 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 		file, err := os.Open(fullPath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
-			return
+			this.Group.Done()
+			continue
 		}
 
 		lines := make([]cli.Line, 0)
@@ -66,7 +67,8 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 
 		if err := scanner.Err(); err != nil {
 			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
-			return
+			this.Group.Done()
+			continue
 		}
 
 		if len(lines) > 0 {
