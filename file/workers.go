@@ -14,11 +14,15 @@ import (
 const MAX_NUMBER_OF_WORKERS = 100
 
 type WorkerQueue struct {
-	Group   *sync.WaitGroup
-	Input   chan string
+	Closed chan bool
+	Group  *sync.WaitGroup
+	Input  chan UnitOfWork
+	Output *cli.Output
+}
+
+type UnitOfWork struct {
+	File    string
 	Pattern *regexp.Regexp
-	Closed  chan bool
-	Output  *cli.Output
 }
 
 func (this *WorkerQueue) Start() {
@@ -46,9 +50,9 @@ func (this *WorkerQueue) Close() {
 }
 
 func (this *WorkerQueue) worker(death chan<- bool) {
-	for fullPath := range this.Input {
+	for work := range this.Input {
 
-		file, err := os.Open(fullPath)
+		file, err := os.Open(work.File)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
 			this.Group.Done()
@@ -61,23 +65,23 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			lineNumber++
-			if this.Pattern.MatchString(scanner.Text()) {
+			if work.Pattern.MatchString(scanner.Text()) {
 				lines = append(lines, cli.Line{
 					Number: lineNumber,
-					Line:   this.Pattern.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
+					Line:   work.Pattern.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
 				})
 			}
 		}
 
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", fullPath, err.Error())))
+			fmt.Fprintln(os.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
 			this.Group.Done()
 			continue
 		}
 
 		if len(lines) > 0 {
 			this.Output.Console <- cli.Match{
-				File:  fullPath,
+				File:  work.File,
 				Lines: lines,
 			}
 		}

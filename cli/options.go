@@ -11,23 +11,23 @@ import (
 )
 
 type Options struct {
+	Case   bool
 	Dir    string
 	File   string
 	Find   string
-	Ignore string
-	Case   bool
 	Help   bool
+	Ignore string
 }
 
 func ParseOptions() Options {
 	var opt Options
 
+	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
 	flag.StringVar(&opt.Dir, "dir", ".", "The directory to traverse.")
 	flag.StringVar(&opt.File, "file", "*", "The glob file pattern to match.")
 	flag.StringVar(&opt.Find, "find", "", "The regex to match text against.")
-	flag.StringVar(&opt.Ignore, "ignore", "", "A regex to ignore files or directories.")
-	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
 	flag.BoolVar(&opt.Help, "help", false, "Show help.")
+	flag.StringVar(&opt.Ignore, "ignore", "", "A regex to ignore files or directories.")
 	flag.Parse()
 
 	opt.Dir, _ = homedir.Expand(opt.Dir)
@@ -69,6 +69,7 @@ func (this *Options) Echo() {
 		output += color.CyanString("ignoring:    ")
 		output += color.GreenString("%s\n", this.Ignore)
 	}
+
 	fmt.Println(output)
 }
 

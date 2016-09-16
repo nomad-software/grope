@@ -14,9 +14,9 @@ import (
 
 type Handler struct {
 	Group   *sync.WaitGroup
+	Ignore  *regexp.Regexp
 	Options *cli.Options
 	Workers *WorkerQueue
-	Ignore  *regexp.Regexp
 }
 
 func NewHandler(options *cli.Options) Handler {
@@ -30,10 +30,9 @@ func NewHandler(options *cli.Options) Handler {
 	}
 
 	handler.Workers = &WorkerQueue{
-		Group:   handler.Group,
-		Input:   make(chan string),
-		Pattern: handler.compile(handler.Options.Find),
-		Closed:  make(chan bool),
+		Group:  handler.Group,
+		Input:  make(chan UnitOfWork),
+		Closed: make(chan bool),
 		Output: &cli.Output{
 			Console: make(chan cli.Match),
 			Closed:  make(chan bool),
@@ -83,7 +82,10 @@ func (this *Handler) matchPath(fullPath string) {
 
 	if matched {
 		this.Group.Add(1)
-		this.Workers.Input <- fullPath
+		this.Workers.Input <- UnitOfWork{
+			File:    fullPath,
+			Pattern: this.compile(this.Options.Find),
+		}
 	}
 }
 
