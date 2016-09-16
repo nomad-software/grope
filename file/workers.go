@@ -22,7 +22,6 @@ type WorkerQueue struct {
 }
 
 func (this *WorkerQueue) Start() {
-
 	go this.Output.Start()
 
 	life := make(chan bool)
@@ -39,6 +38,11 @@ func (this *WorkerQueue) Start() {
 	<-this.Output.Closed
 
 	this.Closed <- true
+}
+
+func (this *WorkerQueue) Close() {
+	close(this.Input)
+	<-this.Closed
 }
 
 func (this *WorkerQueue) worker(death chan<- bool) {

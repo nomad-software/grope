@@ -19,30 +19,34 @@ type Handler struct {
 	Ignore  *regexp.Regexp
 }
 
-func (this *Handler) Init(options *cli.Options) {
-	var waitGroup sync.WaitGroup
+func NewHandler(options *cli.Options) Handler {
+	var handler Handler
 
-	this.Group = &waitGroup
-	this.Options = options
+	handler.Group = new(sync.WaitGroup)
+	handler.Options = options
 
-	if this.Options.Ignore != "" {
-		this.Ignore = this.compile(this.Options.Ignore)
+	if handler.Options.Ignore != "" {
+		handler.Ignore = handler.compile(handler.Options.Ignore)
 	}
 
-	this.Workers = &WorkerQueue{
-		Group:   &waitGroup,
+	handler.Workers = &WorkerQueue{
+		Group:   handler.Group,
 		Input:   make(chan string),
-		Pattern: this.compile(this.Options.Find),
+		Pattern: handler.compile(handler.Options.Find),
 		Closed:  make(chan bool),
 		Output: &cli.Output{
 			Console: make(chan cli.Match),
 			Closed:  make(chan bool),
 		},
 	}
+
+	return handler
 }
 
 func (this *Handler) Walk() error {
-	return filepath.Walk(this.Options.Dir, func(fullPath string, info os.FileInfo, err error) error {
+	go this.Workers.Start()
+
+	err := filepath.Walk(this.Options.Dir, func(fullPath string, info os.FileInfo, err error) error {
 
 		if err != nil {
 			return err
@@ -57,6 +61,11 @@ func (this *Handler) Walk() error {
 
 		return nil
 	})
+
+	this.Group.Wait()
+	this.Workers.Close()
+
+	return err
 }
 
 func (this *Handler) matchPath(fullPath string) {
