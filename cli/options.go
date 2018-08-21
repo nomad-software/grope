@@ -18,8 +18,8 @@ const (
 type Options struct {
 	Case   bool
 	Dir    string
-	File   string
-	Find   string
+	Glob   string
+	Regex  string
 	Help   bool
 	Ignore string
 }
@@ -29,8 +29,8 @@ func ParseOptions() Options {
 
 	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
 	flag.StringVar(&opt.Dir, "dir", DEFAULT_DIRECTORY, "The directory to traverse.")
-	flag.StringVar(&opt.File, "file", DEFAULT_GLOB, "The glob file pattern to match.")
-	flag.StringVar(&opt.Find, "find", "", "The regex to match text against.")
+	flag.StringVar(&opt.Glob, "glob", DEFAULT_GLOB, "The glob file pattern to match.")
+	flag.StringVar(&opt.Regex, "regex", "", "The regex to match text against.")
 	flag.BoolVar(&opt.Help, "help", false, "Show help.")
 	flag.StringVar(&opt.Ignore, "ignore", "", "A regex to ignore files or directories.")
 	flag.Parse()
@@ -42,7 +42,7 @@ func ParseOptions() Options {
 
 func (this *Options) Valid() bool {
 
-	err := this.compiles(this.Find)
+	err := this.compiles(this.Regex)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, color.RedString("find pattern: %s", err.Error()))
 		return false
@@ -54,28 +54,12 @@ func (this *Options) Valid() bool {
 		return false
 	}
 
-	if this.Find == "" {
+	if this.Regex == "" {
 		fmt.Fprintln(os.Stderr, color.RedString("Find pattern cannot be empty."))
 		return false
 	}
 
 	return true
-}
-
-func (this *Options) Echo() {
-	output := color.CyanString("finding:     ")
-	output += color.GreenString("%s\n", this.Find)
-	output += color.CyanString("in files:    ")
-	output += color.GreenString("%s\n", this.File)
-	output += color.CyanString("starting in: ")
-	output += color.GreenString("%s\n", this.Dir)
-
-	if this.Ignore != "" {
-		output += color.CyanString("ignoring:    ")
-		output += color.GreenString("%s\n", this.Ignore)
-	}
-
-	fmt.Println(output)
 }
 
 func (this *Options) PrintUsage() {

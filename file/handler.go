@@ -74,7 +74,7 @@ func (this *Handler) matchPath(fullPath string) {
 		return
 	}
 
-	matched, err := filepath.Match(this.Options.File, path.Base(fullPath))
+	matched, err := filepath.Match(this.Options.Glob, path.Base(fullPath))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
 		return
@@ -84,7 +84,7 @@ func (this *Handler) matchPath(fullPath string) {
 		this.Group.Add(1)
 		this.Workers.Input <- UnitOfWork{
 			File:    fullPath,
-			Pattern: this.compile(this.Options.Find),
+			Pattern: this.compile(this.Options.Regex),
 		}
 	}
 }
