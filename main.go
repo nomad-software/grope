@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
@@ -10,7 +9,6 @@ import (
 )
 
 func main() {
-
 	options := cli.ParseOptions()
 
 	if options.Help {
@@ -21,7 +19,7 @@ func main() {
 
 		err := file.Walk()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
+			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
 		}
 	}
 }

@@ -3,11 +3,19 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/fatih/color"
+	"github.com/mattn/go-colorable"
 	"github.com/mitchellh/go-homedir"
+)
+
+var (
+	// Stdout is a color friendly pipe.
+	Stdout = colorable.NewColorableStdout()
+
+	// Stderr is a color friendly pipe.
+	Stderr = colorable.NewColorableStderr()
 )
 
 const (
@@ -44,18 +52,18 @@ func (this *Options) Valid() bool {
 
 	err := this.compiles(this.Regex)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, color.RedString("find pattern: %s", err.Error()))
+		fmt.Fprintln(Stderr, color.RedString("find pattern: %s", err.Error()))
 		return false
 	}
 
 	err = this.compiles(this.Ignore)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, color.RedString("ignore pattern: %s", err.Error()))
+		fmt.Fprintln(Stderr, color.RedString("ignore pattern: %s", err.Error()))
 		return false
 	}
 
 	if this.Regex == "" {
-		fmt.Fprintln(os.Stderr, color.RedString("Find pattern cannot be empty."))
+		fmt.Fprintln(Stderr, color.RedString("Find pattern cannot be empty."))
 		return false
 	}
 

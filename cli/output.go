@@ -28,7 +28,7 @@ func (this *Output) Start() {
 		total++
 		color.Blue(match.File)
 		for _, line := range match.Lines {
-			fmt.Print(color.GreenString(strconv.Itoa(line.Number)) + color.WhiteString(":%s\n", line.Line))
+			fmt.Fprintln(Stdout, color.GreenString(strconv.Itoa(line.Number))+color.WhiteString(":%s", line.Line))
 		}
 		fmt.Println("")
 	}

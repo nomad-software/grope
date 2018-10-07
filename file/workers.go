@@ -54,7 +54,7 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 
 		file, err := os.Open(work.File)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(err.Error()))
+			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
 			this.Group.Done()
 			continue
 		}
@@ -74,7 +74,7 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 		}
 
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintln(os.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
+			fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
 			this.Group.Done()
 			continue
 		}
