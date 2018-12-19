@@ -6,7 +6,7 @@
 ## Example
 
 ```
-grope -dir="~/Code" -file="*.go" -find="^(foo|bar)$" -case -ignore="^(baz|qux)$"
+grope -dir="~/Code" -glob="*.go" -regex="^(foo|bar)$" -case -ignore="^(baz|qux)$"
 ```
 
 ## Help
