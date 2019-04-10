@@ -19,10 +19,11 @@ var (
 )
 
 const (
-	DEFAULT_DIRECTORY = "."
-	DEFAULT_GLOB      = "*"
+	defaultDirectory = "."
+	defaultGlob      = "*"
 )
 
+// Options contain the command line options passed to the program.
 type Options struct {
 	Case   bool
 	Dir    string
@@ -32,12 +33,13 @@ type Options struct {
 	Ignore string
 }
 
+// ParseOptions parses the command line options.
 func ParseOptions() Options {
 	var opt Options
 
 	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
-	flag.StringVar(&opt.Dir, "dir", DEFAULT_DIRECTORY, "The directory to traverse.")
-	flag.StringVar(&opt.Glob, "glob", DEFAULT_GLOB, "The glob file pattern to match.")
+	flag.StringVar(&opt.Dir, "dir", defaultDirectory, "The directory to traverse.")
+	flag.StringVar(&opt.Glob, "glob", defaultGlob, "The glob file pattern to match.")
 	flag.StringVar(&opt.Regex, "regex", "", "The regex to match text against.")
 	flag.BoolVar(&opt.Help, "help", false, "Show help.")
 	flag.StringVar(&opt.Ignore, "ignore", "", "A regex to ignore files or directories.")
@@ -48,21 +50,22 @@ func ParseOptions() Options {
 	return opt
 }
 
-func (this *Options) Valid() bool {
+// Valid checks command line options are valid.
+func (opt *Options) Valid() bool {
 
-	err := this.compiles(this.Regex)
+	err := opt.compiles(opt.Regex)
 	if err != nil {
 		fmt.Fprintln(Stderr, color.RedString("find pattern: %s", err.Error()))
 		return false
 	}
 
-	err = this.compiles(this.Ignore)
+	err = opt.compiles(opt.Ignore)
 	if err != nil {
 		fmt.Fprintln(Stderr, color.RedString("ignore pattern: %s", err.Error()))
 		return false
 	}
 
-	if this.Regex == "" {
+	if opt.Regex == "" {
 		fmt.Fprintln(Stderr, color.RedString("Find pattern cannot be empty."))
 		return false
 	}
@@ -70,7 +73,8 @@ func (this *Options) Valid() bool {
 	return true
 }
 
-func (this *Options) PrintUsage() {
+// PrintUsage prints the usage of the program.
+func (opt *Options) PrintUsage() {
 	var banner string = `  ____
  / ___|_ __ ___  _ __   ___
 | |  _| '__/ _ \| '_ \ / _ \
@@ -82,8 +86,9 @@ func (this *Options) PrintUsage() {
 	flag.Usage()
 }
 
-func (this *Options) compiles(pattern string) (err error) {
-	if this.Case {
+// Check that a regex pattern compiles.
+func (opt *Options) compiles(pattern string) (err error) {
+	if opt.Case {
 		_, err = regexp.Compile(pattern)
 	} else {
 		_, err = regexp.Compile("(?i)" + pattern)

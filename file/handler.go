@@ -12,6 +12,7 @@ import (
 	"github.com/nomad-software/grope/cli"
 )
 
+// Handler is the main file handler, it coordinates matching options and the worker queue.
 type Handler struct {
 	Group   *sync.WaitGroup
 	Ignore  *regexp.Regexp
@@ -19,6 +20,7 @@ type Handler struct {
 	Workers *WorkerQueue
 }
 
+// NewHandler creates a new handler.
 func NewHandler(options *cli.Options) Handler {
 	var handler Handler
 
@@ -42,10 +44,12 @@ func NewHandler(options *cli.Options) Handler {
 	return handler
 }
 
-func (this *Handler) Walk() error {
-	go this.Workers.Start()
+// Walk starts walking through the directory specified in the options and starts
+// processing any matched files.
+func (handler *Handler) Walk() error {
+	go handler.Workers.Start()
 
-	err := filepath.Walk(this.Options.Dir, func(fullPath string, info os.FileInfo, err error) error {
+	err := filepath.Walk(handler.Options.Dir, func(fullPath string, info os.FileInfo, err error) error {
 
 		if err != nil {
 			return err
@@ -55,42 +59,45 @@ func (this *Handler) Walk() error {
 			return nil
 		}
 
-		this.Group.Add(1)
-		go this.matchPath(fullPath)
+		handler.Group.Add(1)
+		go handler.matchPath(fullPath)
 
 		return nil
 	})
 
-	this.Group.Wait()
-	this.Workers.Close()
+	handler.Group.Wait()
+	handler.Workers.Close()
 
 	return err
 }
 
-func (this *Handler) matchPath(fullPath string) {
-	defer this.Group.Done()
+// Handles matching file paths and if matched successfully add a unit of work to
+// search the contents.
+func (handler *Handler) matchPath(fullPath string) {
+	defer handler.Group.Done()
 
-	if this.Ignore != nil && this.Ignore.MatchString(fullPath) {
+	if handler.Ignore != nil && handler.Ignore.MatchString(fullPath) {
 		return
 	}
 
-	matched, err := filepath.Match(this.Options.Glob, path.Base(fullPath))
+	matched, err := filepath.Match(handler.Options.Glob, path.Base(fullPath))
 	if err != nil {
 		fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
 		return
 	}
 
 	if matched {
-		this.Group.Add(1)
-		this.Workers.Input <- UnitOfWork{
+		handler.Group.Add(1)
+		handler.Workers.Input <- UnitOfWork{
 			File:    fullPath,
-			Pattern: this.compile(this.Options.Regex),
+			Pattern: handler.compile(handler.Options.Regex),
 		}
 	}
 }
 
-func (this *Handler) compile(pattern string) (regex *regexp.Regexp) {
-	if this.Options.Case {
+// Compiles the pattern regular expression to be used for searching in files.
+func (handler *Handler) compile(pattern string) (regex *regexp.Regexp) {
+	if handler.Options.Case {
 		regex, _ = regexp.Compile(pattern)
 	} else {
 		regex, _ = regexp.Compile("(?i)" + pattern)

@@ -11,8 +11,9 @@ import (
 	"github.com/nomad-software/grope/cli"
 )
 
-const MAX_NUMBER_OF_WORKERS = 100
+const maxWorkers = 100
 
+// WorkerQueue coordinates units of work.
 type WorkerQueue struct {
 	Closed chan bool
 	Group  *sync.WaitGroup
@@ -20,42 +21,46 @@ type WorkerQueue struct {
 	Output *cli.Output
 }
 
+// UnitOfWork wraps a file and the pattern being matched agasint it.
 type UnitOfWork struct {
 	File    string
 	Pattern *regexp.Regexp
 }
 
-func (this *WorkerQueue) Start() {
-	go this.Output.Start()
+// Start creates worker goroutines and starts processing units of work.
+func (queue *WorkerQueue) Start() {
+	go queue.Output.Start()
 
 	life := make(chan bool)
 
-	for i := 0; i <= MAX_NUMBER_OF_WORKERS; i++ {
-		go this.worker(life)
+	for i := 0; i <= maxWorkers; i++ {
+		go queue.worker(life)
 	}
 
-	for i := 0; i <= MAX_NUMBER_OF_WORKERS; i++ {
+	for i := 0; i <= maxWorkers; i++ {
 		<-life
 	}
 
-	close(this.Output.Console)
-	<-this.Output.Closed
+	close(queue.Output.Console)
+	<-queue.Output.Closed
 
-	this.Closed <- true
+	queue.Closed <- true
 }
 
-func (this *WorkerQueue) Close() {
-	close(this.Input)
-	<-this.Closed
+// Close closes the worker queue's input.
+func (queue *WorkerQueue) Close() {
+	close(queue.Input)
+	<-queue.Closed
 }
 
-func (this *WorkerQueue) worker(death chan<- bool) {
-	for work := range this.Input {
+// Create workers for the queue.
+func (queue *WorkerQueue) worker(death chan<- bool) {
+	for work := range queue.Input {
 
 		file, err := os.Open(work.File)
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
-			this.Group.Done()
+			queue.Group.Done()
 			continue
 		}
 
@@ -75,19 +80,19 @@ func (this *WorkerQueue) worker(death chan<- bool) {
 
 		if err := scanner.Err(); err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
-			this.Group.Done()
+			queue.Group.Done()
 			continue
 		}
 
 		if len(lines) > 0 {
-			this.Output.Console <- cli.Match{
+			queue.Output.Console <- cli.Match{
 				File:  work.File,
 				Lines: lines,
 			}
 		}
 
 		file.Close()
-		this.Group.Done()
+		queue.Group.Done()
 	}
 
 	death <- true
