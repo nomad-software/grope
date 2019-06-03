@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/fatih/color"
@@ -79,7 +80,11 @@ func (queue *WorkerQueue) worker(death chan<- bool) {
 		}
 
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
+			// Completely ignore 'token too long' errors because they're usually
+			// minified frontend files we're not interested in.
+			if !strings.HasSuffix(err.Error(), "token too long") {
+				fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
+			}
 			queue.Group.Done()
 			continue
 		}
