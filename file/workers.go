@@ -24,8 +24,8 @@ type WorkerQueue struct {
 
 // UnitOfWork wraps a file and the pattern being matched agasint it.
 type UnitOfWork struct {
-	File    string
-	Pattern *regexp.Regexp
+	File  string
+	Regex *regexp.Regexp
 }
 
 // Start creates worker goroutines and starts processing units of work.
@@ -71,10 +71,10 @@ func (queue *WorkerQueue) worker(death chan<- bool) {
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			lineNumber++
-			if work.Pattern.MatchString(scanner.Text()) {
+			if work.Regex.MatchString(scanner.Text()) {
 				lines = append(lines, cli.Line{
 					Number: lineNumber,
-					Line:   work.Pattern.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
+					Line:   work.Regex.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
 				})
 			}
 		}

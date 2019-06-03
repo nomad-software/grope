@@ -16,6 +16,7 @@ import (
 type Handler struct {
 	Group   *sync.WaitGroup
 	Ignore  *regexp.Regexp
+	Regex   *regexp.Regexp
 	Options *cli.Options
 	Workers *WorkerQueue
 }
@@ -28,8 +29,10 @@ func NewHandler(options *cli.Options) Handler {
 	handler.Options = options
 
 	if handler.Options.Ignore != "" {
-		handler.Ignore = handler.compile(handler.Options.Ignore)
+		handler.Ignore = compile(handler.Options.Ignore, handler.Options.Case)
 	}
+
+	handler.Regex = compile(handler.Options.Regex, handler.Options.Case)
 
 	handler.Workers = &WorkerQueue{
 		Group:  handler.Group,
@@ -89,15 +92,15 @@ func (handler *Handler) matchPath(fullPath string) {
 	if matched {
 		handler.Group.Add(1)
 		handler.Workers.Input <- UnitOfWork{
-			File:    fullPath,
-			Pattern: handler.compile(handler.Options.Regex),
+			File:  fullPath,
+			Regex: handler.Regex,
 		}
 	}
 }
 
 // Compiles the pattern regular expression to be used for searching in files.
-func (handler *Handler) compile(pattern string) (regex *regexp.Regexp) {
-	if handler.Options.Case {
+func compile(pattern string, observeCase bool) (regex *regexp.Regexp) {
+	if observeCase {
 		regex, _ = regexp.Compile(pattern)
 	} else {
 		regex, _ = regexp.Compile("(?i)" + pattern)
