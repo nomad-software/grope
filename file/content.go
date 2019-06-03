@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sync"
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
@@ -16,7 +15,6 @@ const nMatchWorkers = 100
 // ContentQueue coordinates units of work.
 type ContentQueue struct {
 	Closed chan bool
-	Group  *sync.WaitGroup
 	Input  chan ContentUnitOfWork
 	Output *cli.Output
 }
@@ -50,11 +48,10 @@ func (c *ContentQueue) Start() {
 // Create workers for the queue.
 func (c *ContentQueue) matchContent(death chan<- bool) {
 	for work := range c.Input {
-
 		file, err := os.Open(work.File)
+
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
-			c.Group.Done()
 			continue
 		}
 
@@ -78,7 +75,6 @@ func (c *ContentQueue) matchContent(death chan<- bool) {
 			if err != bufio.ErrTooLong {
 				fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
 			}
-			c.Group.Done()
 			continue
 		}
 
@@ -90,7 +86,6 @@ func (c *ContentQueue) matchContent(death chan<- bool) {
 		}
 
 		file.Close()
-		c.Group.Done()
 	}
 
 	death <- true

@@ -4,14 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sync"
 
 	"github.com/nomad-software/grope/cli"
 )
 
 // Walker is the main file walker, it coordinates matching options and the path queue.
 type Walker struct {
-	Group       *sync.WaitGroup
 	Dir         string
 	Glob        string
 	Ignore      *regexp.Regexp
@@ -23,7 +21,6 @@ type Walker struct {
 func NewWalker(opt *cli.Options) Walker {
 	var h Walker
 
-	h.Group = new(sync.WaitGroup)
 	h.Regex = compile(opt.Regex, opt.Case)
 	h.Dir = opt.Dir
 	h.Glob = opt.Glob
@@ -33,11 +30,9 @@ func NewWalker(opt *cli.Options) Walker {
 	}
 
 	h.PathMatcher = &PathQueue{
-		Group:  h.Group,
 		Input:  make(chan PathUnitOfWork),
 		Closed: make(chan bool),
 		ContentMatcher: &ContentQueue{
-			Group:  h.Group,
 			Input:  make(chan ContentUnitOfWork),
 			Closed: make(chan bool),
 			Output: &cli.Output{
@@ -57,7 +52,6 @@ func (h *Walker) Walk() error {
 	go h.PathMatcher.ContentMatcher.Start()
 
 	err := filepath.Walk(h.Dir, func(fullPath string, info os.FileInfo, err error) error {
-
 		if err != nil {
 			return err
 		}
@@ -66,7 +60,6 @@ func (h *Walker) Walk() error {
 			return nil
 		}
 
-		h.Group.Add(1)
 		h.PathMatcher.Input <- PathUnitOfWork{
 			FullPath: fullPath,
 			Ignore:   h.Ignore,
@@ -76,8 +69,6 @@ func (h *Walker) Walk() error {
 
 		return nil
 	})
-
-	h.Group.Wait()
 
 	h.PathMatcher.Stop()
 	h.PathMatcher.ContentMatcher.Stop()

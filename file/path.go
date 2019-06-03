@@ -5,7 +5,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"sync"
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
@@ -16,7 +15,6 @@ const nPathWorkers = 100
 // PathQueue coordinates units of work.
 type PathQueue struct {
 	Closed         chan bool
-	Group          *sync.WaitGroup
 	Input          chan PathUnitOfWork
 	ContentMatcher *ContentQueue
 }
@@ -47,16 +45,13 @@ func (q *PathQueue) Start() {
 // Create workers for the queue.
 func (q *PathQueue) matchPaths(death chan<- bool) {
 	for work := range q.Input {
-
 		if work.Ignore != nil && work.Ignore.MatchString(work.FullPath) {
-			q.Group.Done()
 			continue
 		}
 
 		matched, err := filepath.Match(work.Glob, path.Base(work.FullPath))
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
-			q.Group.Done()
 			continue
 		}
 
@@ -65,7 +60,6 @@ func (q *PathQueue) matchPaths(death chan<- bool) {
 				File:  work.FullPath,
 				Regex: work.Regex,
 			}
-			// Delegate completing the wait group to the content matcher.
 		}
 	}
 
