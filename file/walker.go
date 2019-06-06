@@ -10,48 +10,36 @@ import (
 
 // Walker is the main file walker, it coordinates matching options and the path queue.
 type Walker struct {
-	Dir         string
-	Glob        string
-	Ignore      *regexp.Regexp
-	Regex       *regexp.Regexp
-	PathMatcher *PathQueue
+	Dir       string
+	Glob      string
+	Ignore    *regexp.Regexp
+	Regex     *regexp.Regexp
+	PathQueue *PathQueue
 }
 
 // NewWalker creates a new handler.
-func NewWalker(opt *cli.Options) Walker {
-	var h Walker
-
-	h.Regex = compile(opt.Regex, opt.Case)
-	h.Dir = opt.Dir
-	h.Glob = opt.Glob
+func NewWalker(opt *cli.Options) *Walker {
+	var w = Walker{
+		Dir:       opt.Dir,
+		Glob:      opt.Glob,
+		Regex:     compile(opt.Regex, opt.Case),
+		PathQueue: NewPathQueue(),
+	}
 
 	if opt.Ignore != "" {
-		h.Ignore = compile(opt.Ignore, opt.Case)
+		w.Ignore = compile(opt.Ignore, opt.Case)
 	}
 
-	h.PathMatcher = &PathQueue{
-		Input:  make(chan PathUnitOfWork),
-		Closed: make(chan bool),
-		ContentMatcher: &ContentQueue{
-			Input:  make(chan ContentUnitOfWork),
-			Closed: make(chan bool),
-			Output: &cli.Output{
-				Console: make(chan cli.Match),
-				Closed:  make(chan bool),
-			},
-		},
-	}
-
-	return h
+	return &w
 }
 
 // Walk starts walking through the directory specified in the options and starts
 // processing any matched files.
-func (h *Walker) Walk() error {
-	go h.PathMatcher.Start()
-	go h.PathMatcher.ContentMatcher.Start()
+func (w *Walker) Walk() error {
+	go w.PathQueue.Start()
+	go w.PathQueue.ContentQueue.Start()
 
-	err := filepath.Walk(h.Dir, func(fullPath string, info os.FileInfo, err error) error {
+	err := filepath.Walk(w.Dir, func(fullPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -60,18 +48,18 @@ func (h *Walker) Walk() error {
 			return nil
 		}
 
-		h.PathMatcher.Input <- PathUnitOfWork{
+		w.PathQueue.Input <- PathUnitOfWork{
 			FullPath: fullPath,
-			Ignore:   h.Ignore,
-			Regex:    h.Regex,
-			Glob:     h.Glob,
+			Ignore:   w.Ignore,
+			Regex:    w.Regex,
+			Glob:     w.Glob,
 		}
 
 		return nil
 	})
 
-	h.PathMatcher.Stop()
-	h.PathMatcher.ContentMatcher.Stop()
+	w.PathQueue.Stop()
+	w.PathQueue.ContentQueue.Stop()
 
 	return err
 }

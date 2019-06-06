@@ -25,6 +25,14 @@ type Output struct {
 	Closed  chan bool
 }
 
+// NewOutput creates a new output handler.
+func NewOutput() *Output {
+	return &Output{
+		Console: make(chan Match),
+		Closed:  make(chan bool),
+	}
+}
+
 // Start the output channel.
 func (output *Output) Start() {
 	var total int

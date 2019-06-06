@@ -25,29 +25,38 @@ type ContentUnitOfWork struct {
 	Regex *regexp.Regexp
 }
 
+// NewContentQueue creates a new content queue.
+func NewContentQueue() *ContentQueue {
+	return &ContentQueue{
+		Input:  make(chan ContentUnitOfWork),
+		Closed: make(chan bool),
+		Output: cli.NewOutput(),
+	}
+}
+
 // Start creates worker goroutines and starts processing units of work.
-func (c *ContentQueue) Start() {
-	go c.Output.Start()
+func (q *ContentQueue) Start() {
+	go q.Output.Start()
 
 	life := make(chan bool)
 
 	for i := 0; i < nMatchWorkers; i++ {
-		go c.matchContent(life)
+		go q.matchContent(life)
 	}
 
 	for i := 0; i < nMatchWorkers; i++ {
 		<-life
 	}
 
-	close(c.Output.Console)
-	<-c.Output.Closed
+	close(q.Output.Console)
+	<-q.Output.Closed
 
-	c.Closed <- true
+	q.Closed <- true
 }
 
 // Create workers for the queue.
-func (c *ContentQueue) matchContent(death chan<- bool) {
-	for work := range c.Input {
+func (q *ContentQueue) matchContent(death chan<- bool) {
+	for work := range q.Input {
 		file, err := os.Open(work.File)
 
 		if err != nil {
@@ -79,7 +88,7 @@ func (c *ContentQueue) matchContent(death chan<- bool) {
 		}
 
 		if len(lines) > 0 {
-			c.Output.Console <- cli.Match{
+			q.Output.Console <- cli.Match{
 				File:  work.File,
 				Lines: lines,
 			}
@@ -92,7 +101,7 @@ func (c *ContentQueue) matchContent(death chan<- bool) {
 }
 
 // Stop closes the worker queue's input.
-func (c *ContentQueue) Stop() {
-	close(c.Input)
-	<-c.Closed
+func (q *ContentQueue) Stop() {
+	close(q.Input)
+	<-q.Closed
 }

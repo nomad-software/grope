@@ -14,9 +14,9 @@ const nPathWorkers = 100
 
 // PathQueue coordinates units of work.
 type PathQueue struct {
-	Closed         chan bool
-	Input          chan PathUnitOfWork
-	ContentMatcher *ContentQueue
+	Closed       chan bool
+	Input        chan PathUnitOfWork
+	ContentQueue *ContentQueue
 }
 
 // PathUnitOfWork wraps a file and the pattern being matched agasint it.
@@ -25,6 +25,15 @@ type PathUnitOfWork struct {
 	Ignore   *regexp.Regexp
 	Regex    *regexp.Regexp
 	Glob     string
+}
+
+// NewPathQueue creates a new path queue.
+func NewPathQueue() *PathQueue {
+	return &PathQueue{
+		Input:        make(chan PathUnitOfWork),
+		Closed:       make(chan bool),
+		ContentQueue: NewContentQueue(),
+	}
 }
 
 // Start creates worker goroutines and starts processing units of work.
@@ -56,7 +65,7 @@ func (q *PathQueue) matchPaths(death chan<- bool) {
 		}
 
 		if matched {
-			q.ContentMatcher.Input <- ContentUnitOfWork{
+			q.ContentQueue.Input <- ContentUnitOfWork{
 				File:  work.FullPath,
 				Regex: work.Regex,
 			}

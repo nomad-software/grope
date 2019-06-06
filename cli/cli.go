@@ -75,7 +75,7 @@ func (opt *Options) Valid() bool {
 
 // PrintUsage prints the usage of the program.
 func (opt *Options) PrintUsage() {
-	var banner string = `  ____
+	var banner = `  ____
  / ___|_ __ ___  _ __   ___
 | |  _| '__/ _ \| '_ \ / _ \
 | |_| | | | (_) | |_) |  __/
