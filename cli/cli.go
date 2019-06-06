@@ -53,14 +53,12 @@ func ParseOptions() *Options {
 // Valid checks command line options are valid.
 func (opt *Options) Valid() bool {
 
-	err := compile(opt.Regex, opt.Case)
-	if err != nil {
+	if err := compile(opt.Regex, opt.Case); err != nil {
 		fmt.Fprintln(Stderr, color.RedString("Find pattern: %s", err.Error()))
 		return false
 	}
 
-	err = compile(opt.Ignore, opt.Case)
-	if err != nil {
+	if err := compile(opt.Ignore, opt.Case); err != nil {
 		fmt.Fprintln(Stderr, color.RedString("Ignore pattern: %s", err.Error()))
 		return false
 	}
