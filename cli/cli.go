@@ -34,7 +34,7 @@ type Options struct {
 }
 
 // ParseOptions parses the command line options.
-func ParseOptions() Options {
+func ParseOptions() *Options {
 	var opt Options
 
 	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
@@ -47,21 +47,21 @@ func ParseOptions() Options {
 
 	opt.Dir, _ = homedir.Expand(opt.Dir)
 
-	return opt
+	return &opt
 }
 
 // Valid checks command line options are valid.
 func (opt *Options) Valid() bool {
 
-	err := opt.compiles(opt.Regex)
+	err := compile(opt.Regex, opt.Case)
 	if err != nil {
-		fmt.Fprintln(Stderr, color.RedString("find pattern: %s", err.Error()))
+		fmt.Fprintln(Stderr, color.RedString("Find pattern: %s", err.Error()))
 		return false
 	}
 
-	err = opt.compiles(opt.Ignore)
+	err = compile(opt.Ignore, opt.Case)
 	if err != nil {
-		fmt.Fprintln(Stderr, color.RedString("ignore pattern: %s", err.Error()))
+		fmt.Fprintln(Stderr, color.RedString("Ignore pattern: %s", err.Error()))
 		return false
 	}
 
@@ -87,8 +87,8 @@ func (opt *Options) PrintUsage() {
 }
 
 // Check that a regex pattern compiles.
-func (opt *Options) compiles(pattern string) (err error) {
-	if opt.Case {
+func compile(pattern string, observeCase bool) (err error) {
+	if observeCase {
 		_, err = regexp.Compile(pattern)
 	} else {
 		_, err = regexp.Compile("(?i)" + pattern)

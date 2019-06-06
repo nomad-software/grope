@@ -15,9 +15,8 @@ func main() {
 		options.PrintUsage()
 
 	} else if options.Valid() {
-		walker := file.NewWalker(&options)
+		err := file.NewWalker(options).Walk()
 
-		err := walker.Walk()
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
 		}
