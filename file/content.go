@@ -12,30 +12,30 @@ import (
 
 const nMatchWorkers = 100
 
-// ContentQueue coordinates units of work.
-type ContentQueue struct {
+// contentQueue coordinates units of work.
+type contentQueue struct {
 	Closed chan bool
-	Input  chan ContentUnitOfWork
+	Input  chan contentUnitOfWork
 	Output *cli.Output
 }
 
-// ContentUnitOfWork wraps a file and the pattern being matched agasint it.
-type ContentUnitOfWork struct {
+// contentUnitOfWork wraps a file path and the content pattern being matched within it.
+type contentUnitOfWork struct {
 	File  string
 	Regex *regexp.Regexp
 }
 
-// NewContentQueue creates a new content queue.
-func NewContentQueue() *ContentQueue {
-	return &ContentQueue{
-		Input:  make(chan ContentUnitOfWork),
+// newContentQueue creates a new content queue.
+func newContentQueue() *contentQueue {
+	return &contentQueue{
+		Input:  make(chan contentUnitOfWork),
 		Closed: make(chan bool),
 		Output: cli.NewOutput(),
 	}
 }
 
-// Start creates worker goroutines and starts processing units of work.
-func (q *ContentQueue) Start() {
+// start creates worker goroutines and starts processing units of work.
+func (q *contentQueue) start() {
 	go q.Output.Start()
 
 	life := make(chan bool)
@@ -54,8 +54,8 @@ func (q *ContentQueue) Start() {
 	q.Closed <- true
 }
 
-// Create workers for the queue.
-func (q *ContentQueue) matchContent(death chan<- bool) {
+// matchPaths processes content units of work and matches valid lines to output to the CLI.
+func (q *contentQueue) matchContent(death chan<- bool) {
 	for work := range q.Input {
 		file, err := os.Open(work.File)
 
@@ -100,8 +100,8 @@ func (q *ContentQueue) matchContent(death chan<- bool) {
 	death <- true
 }
 
-// Stop closes the worker queue's input.
-func (q *ContentQueue) Stop() {
+// stop closes the content queue's input.
+func (q *contentQueue) stop() {
 	close(q.Input)
 	<-q.Closed
 }

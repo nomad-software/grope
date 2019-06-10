@@ -14,16 +14,16 @@ type Walker struct {
 	Glob      string
 	Ignore    *regexp.Regexp
 	Regex     *regexp.Regexp
-	PathQueue *PathQueue
+	PathQueue *pathQueue
 }
 
-// NewWalker creates a new handler.
+// NewWalker creates a new file walker.
 func NewWalker(opt *cli.Options) *Walker {
 	var w = Walker{
 		Dir:       opt.Dir,
 		Glob:      opt.Glob,
 		Regex:     compile(opt.Regex, opt.Case),
-		PathQueue: NewPathQueue(),
+		PathQueue: newPathQueue(),
 	}
 
 	if opt.Ignore != "" {
@@ -36,8 +36,8 @@ func NewWalker(opt *cli.Options) *Walker {
 // Walk starts walking through the directory specified in the options and starts
 // processing any matched files.
 func (w *Walker) Walk() error {
-	go w.PathQueue.Start()
-	go w.PathQueue.ContentQueue.Start()
+	go w.PathQueue.start()
+	go w.PathQueue.ContentQueue.start()
 
 	err := filepath.Walk(w.Dir, func(fullPath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -48,7 +48,7 @@ func (w *Walker) Walk() error {
 			return nil
 		}
 
-		w.PathQueue.Input <- PathUnitOfWork{
+		w.PathQueue.Input <- pathUnitOfWork{
 			FullPath: fullPath,
 			Ignore:   w.Ignore,
 			Regex:    w.Regex,
@@ -58,8 +58,8 @@ func (w *Walker) Walk() error {
 		return nil
 	})
 
-	w.PathQueue.Stop()
-	w.PathQueue.ContentQueue.Stop()
+	w.PathQueue.stop()
+	w.PathQueue.ContentQueue.stop()
 
 	return err
 }

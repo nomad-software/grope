@@ -12,32 +12,32 @@ import (
 
 const nPathWorkers = 100
 
-// PathQueue coordinates units of work.
-type PathQueue struct {
+// pathQueue coordinates units of work.
+type pathQueue struct {
 	Closed       chan bool
-	Input        chan PathUnitOfWork
-	ContentQueue *ContentQueue
+	Input        chan pathUnitOfWork
+	ContentQueue *contentQueue
 }
 
-// PathUnitOfWork wraps a file and the pattern being matched agasint it.
-type PathUnitOfWork struct {
+// pathUnitOfWork wraps a file path and the pattern being matched agasint it.
+type pathUnitOfWork struct {
 	FullPath string
 	Ignore   *regexp.Regexp
 	Regex    *regexp.Regexp
 	Glob     string
 }
 
-// NewPathQueue creates a new path queue.
-func NewPathQueue() *PathQueue {
-	return &PathQueue{
-		Input:        make(chan PathUnitOfWork),
+// newPathQueue creates a new path queue.
+func newPathQueue() *pathQueue {
+	return &pathQueue{
+		Input:        make(chan pathUnitOfWork),
 		Closed:       make(chan bool),
-		ContentQueue: NewContentQueue(),
+		ContentQueue: newContentQueue(),
 	}
 }
 
-// Start creates worker goroutines and starts processing units of work.
-func (q *PathQueue) Start() {
+// start creates worker goroutines and starts processing units of work.
+func (q *pathQueue) start() {
 	life := make(chan bool)
 
 	for i := 0; i < nPathWorkers; i++ {
@@ -51,8 +51,8 @@ func (q *PathQueue) Start() {
 	q.Closed <- true
 }
 
-// Create workers for the queue.
-func (q *PathQueue) matchPaths(death chan<- bool) {
+// matchPaths processes path units of work and matches valid paths for further content processing.
+func (q *pathQueue) matchPaths(death chan<- bool) {
 	for work := range q.Input {
 		if work.Ignore != nil && work.Ignore.MatchString(work.FullPath) {
 			continue
@@ -65,7 +65,7 @@ func (q *PathQueue) matchPaths(death chan<- bool) {
 		}
 
 		if matched {
-			q.ContentQueue.Input <- ContentUnitOfWork{
+			q.ContentQueue.Input <- contentUnitOfWork{
 				File:  work.FullPath,
 				Regex: work.Regex,
 			}
@@ -75,8 +75,8 @@ func (q *PathQueue) matchPaths(death chan<- bool) {
 	death <- true
 }
 
-// Stop closes the worker queue's input.
-func (q *PathQueue) Stop() {
+// stop closes the path queue's input.
+func (q *pathQueue) stop() {
 	close(q.Input)
 	<-q.Closed
 }
