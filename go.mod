@@ -7,3 +7,5 @@ require (
 	github.com/mitchellh/go-homedir v1.0.0
 	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6 // indirect
 )
+
+go 1.13

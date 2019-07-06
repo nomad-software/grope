@@ -10,7 +10,7 @@ import (
 	"github.com/nomad-software/grope/cli"
 )
 
-const nMatchWorkers = 100
+const nContentWorkers = 100
 
 // contentQueue coordinates units of work.
 type contentQueue struct {
@@ -40,11 +40,11 @@ func (q *contentQueue) start() {
 
 	life := make(chan bool)
 
-	for i := 0; i < nMatchWorkers; i++ {
+	for i := 0; i < nContentWorkers; i++ {
 		go q.matchContent(life)
 	}
 
-	for i := 0; i < nMatchWorkers; i++ {
+	for i := 0; i < nContentWorkers; i++ {
 		<-life
 	}
 
