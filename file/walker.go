@@ -1,7 +1,7 @@
 package file
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 
@@ -39,12 +39,22 @@ func (w *Walker) Walk() error {
 	go w.PathQueue.start()
 	go w.PathQueue.ContentQueue.start()
 
-	err := filepath.Walk(w.Dir, func(fullPath string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(w.Dir, func(fullPath string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() || !info.Mode().IsRegular() {
+		if entry.IsDir() {
+			return nil
+		}
+
+		info, err := entry.Info()
+
+		if err != nil {
+			return err
+		}
+
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 
