@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/fatih/color"
@@ -12,7 +13,7 @@ func main() {
 	options := cli.ParseOptions()
 
 	if options.Help {
-		options.PrintUsage()
+		flag.Usage()
 
 	} else if options.Valid() {
 		err := file.NewWalker(options).Walk()

@@ -71,19 +71,6 @@ func (opt *Options) Valid() bool {
 	return true
 }
 
-// PrintUsage prints the usage of the program.
-func (opt *Options) PrintUsage() {
-	var banner = `  ____
- / ___|_ __ ___  _ __   ___
-| |  _| '__/ _ \| '_ \ / _ \
-| |_| | | | (_) | |_) |  __/
- \____|_|  \___/| .__/ \___|
-                |_|
-`
-	color.Cyan(banner)
-	flag.Usage()
-}
-
 // Check that a regex pattern compiles.
 func compile(pattern string, observeCase bool) (err error) {
 	if observeCase {
