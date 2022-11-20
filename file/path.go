@@ -8,6 +8,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
+	"golang.org/x/sync/errgroup"
 )
 
 const nPathWorkers = 100
@@ -38,21 +39,19 @@ func newPathQueue() *pathQueue {
 
 // start creates worker goroutines and starts processing units of work.
 func (q *pathQueue) start() {
-	life := make(chan bool)
+	g := new(errgroup.Group)
 
 	for i := 0; i < nPathWorkers; i++ {
-		go q.matchPaths(life)
+		g.Go(q.matchPaths)
 	}
 
-	for i := 0; i < nPathWorkers; i++ {
-		<-life
-	}
+	g.Wait()
 
 	q.Closed <- true
 }
 
 // matchPaths processes path units of work and matches valid paths for further content processing.
-func (q *pathQueue) matchPaths(death chan<- bool) {
+func (q *pathQueue) matchPaths() error {
 	for work := range q.Input {
 		if work.Ignore != nil && work.Ignore.MatchString(work.FullPath) {
 			continue
@@ -72,7 +71,7 @@ func (q *pathQueue) matchPaths(death chan<- bool) {
 		}
 	}
 
-	death <- true
+	return nil
 }
 
 // stop closes the path queue's input.

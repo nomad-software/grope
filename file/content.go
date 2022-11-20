@@ -8,6 +8,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
+	"golang.org/x/sync/errgroup"
 )
 
 const nContentWorkers = 100
@@ -38,15 +39,13 @@ func newContentQueue() *contentQueue {
 func (q *contentQueue) start() {
 	go q.Output.Start()
 
-	life := make(chan bool)
+	g := new(errgroup.Group)
 
 	for i := 0; i < nContentWorkers; i++ {
-		go q.matchContent(life)
+		g.Go(q.matchContent)
 	}
 
-	for i := 0; i < nContentWorkers; i++ {
-		<-life
-	}
+	g.Wait()
 
 	close(q.Output.Console)
 	<-q.Output.Closed
@@ -55,7 +54,7 @@ func (q *contentQueue) start() {
 }
 
 // matchPaths processes content units of work and matches valid lines to output to the CLI.
-func (q *contentQueue) matchContent(death chan<- bool) {
+func (q *contentQueue) matchContent() error {
 	for work := range q.Input {
 		file, err := os.Open(work.File)
 
@@ -97,7 +96,7 @@ func (q *contentQueue) matchContent(death chan<- bool) {
 		file.Close()
 	}
 
-	death <- true
+	return nil
 }
 
 // stop closes the content queue's input.
