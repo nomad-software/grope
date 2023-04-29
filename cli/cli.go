@@ -11,16 +11,13 @@ import (
 )
 
 var (
-	// Stdout is a color friendly pipe.
-	Stdout = colorable.NewColorableStdout()
-
-	// Stderr is a color friendly pipe.
-	Stderr = colorable.NewColorableStderr()
+	Stdout = colorable.NewColorableStdout() // Stdout is a color friendly pipe.
+	Stderr = colorable.NewColorableStderr() // Stderr is a color friendly pipe.
 )
 
 const (
-	defaultDirectory = "."
-	defaultGlob      = "*"
+	defaultDir  = "."
+	defaultGlob = "*"
 )
 
 // Options contain the command line options passed to the program.
@@ -38,7 +35,7 @@ func ParseOptions() *Options {
 	var opt Options
 
 	flag.BoolVar(&opt.Case, "case", false, "Use to switch to case sensitive matching.")
-	flag.StringVar(&opt.Dir, "dir", defaultDirectory, "The directory to traverse.")
+	flag.StringVar(&opt.Dir, "dir", defaultDir, "The directory to traverse.")
 	flag.StringVar(&opt.Glob, "glob", defaultGlob, "The glob file pattern to match.")
 	flag.StringVar(&opt.Regex, "regex", "", "The regex to match text against.")
 	flag.BoolVar(&opt.Help, "help", false, "Show help.")
@@ -52,7 +49,6 @@ func ParseOptions() *Options {
 
 // Valid checks command line options are valid.
 func (opt *Options) Valid() bool {
-
 	if err := compile(opt.Regex, opt.Case); err != nil {
 		fmt.Fprintln(Stderr, color.RedString("Find pattern: %s", err.Error()))
 		return false
@@ -71,7 +67,7 @@ func (opt *Options) Valid() bool {
 	return true
 }
 
-// Check that a regex pattern compiles.
+// compile checks that a regex pattern compiles.
 func compile(pattern string, observeCase bool) (err error) {
 	if observeCase {
 		_, err = regexp.Compile(pattern)

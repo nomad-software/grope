@@ -6,7 +6,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/nomad-software/grope/cli"
-	"github.com/nomad-software/grope/file"
+	"github.com/nomad-software/grope/file/walker"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 		flag.Usage()
 
 	} else if options.Valid() {
-		err := file.NewWalker(options).Walk()
+		err := walker.New(options).Walk()
 
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
