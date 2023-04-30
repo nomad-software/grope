@@ -9,17 +9,18 @@ import (
 	"github.com/nomad-software/grope/file/path"
 )
 
-// Walker is the main file walker, it coordinates matching options and the path
-// queue.
+// Walker is the main file walker.
 type Walker struct {
 	Dir    string
 	Glob   string
 	Ignore *regexp.Regexp
 	Regex  *regexp.Regexp
-	Path   *path.Queue
+	Path   *path.Worker
 }
 
-// New creates a new file walker.
+// New creates a new file walker. This walker will find valid files and pass
+// them to the path worker for matching against the supplied options.
+// This walker will skip symlinks.
 func New(opt *cli.Options) *Walker {
 	var w = Walker{
 		Dir:   opt.Dir,
@@ -36,7 +37,7 @@ func New(opt *cli.Options) *Walker {
 }
 
 // Walk starts walking through the directory specified in the options and starts
-// processing any matched files.
+// passing valid files to the path worker.
 func (w *Walker) Walk() error {
 	go w.Path.StartQueue()
 
@@ -74,7 +75,7 @@ func (w *Walker) Walk() error {
 	return err
 }
 
-// compile checks that a regex pattern compiles.
+// compile checks that a regex pattern compiles and then returns it.
 func compile(pattern string, observeCase bool) (regex *regexp.Regexp) {
 	if observeCase {
 		regex, _ = regexp.Compile(pattern)

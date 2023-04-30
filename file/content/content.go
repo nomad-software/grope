@@ -12,50 +12,51 @@ import (
 	"github.com/nomad-software/grope/sync"
 )
 
-// Queue coordinates units of work.
-type Queue struct {
+// Worker is the main content worker.
+type Worker struct {
 	Queue  chan Match
-	Output *output.Queue
-	closed chan bool
+	Output *output.Worker
+	done   chan bool
 }
 
 // Match wraps a file path and the content pattern being matched within it.
 type Match struct {
-	File  string
-	Regex *regexp.Regexp
+	FullPath string
+	Regex    *regexp.Regexp
 }
 
-// New creates a new content queue.
-func New() *Queue {
-	return &Queue{
+// New creates a new content worker. This worker will match file content against
+// the specified options and if matched, pass them to the output worker for
+// printing to the terminal.
+func New() *Worker {
+	return &Worker{
 		Queue:  make(chan Match),
 		Output: output.New(),
-		closed: make(chan bool),
+		done:   make(chan bool),
 	}
 }
 
 // StartQueue starts the content queue to process matches.
-func (q *Queue) StartQueue() {
+func (q *Worker) StartQueue() {
 	go q.Output.StartQueue()
 
 	sync.CreateWorkers(q.matchContent, 100)
 
-	q.closed <- true
+	q.done <- true
 }
 
 // Stop closes the content queue.
-func (q *Queue) Stop() {
+func (q *Worker) Stop() {
 	close(q.Queue)
-	<-q.closed
+	<-q.done
 
 	q.Output.Stop()
 }
 
-// matchContent processes content units of work and matches valid lines to
-// output to the CLI.
-func (q *Queue) matchContent() error {
+// matchContent matches content for output to the terminal.
+func (q *Worker) matchContent() error {
 	for work := range q.Queue {
-		file, err := os.Open(work.File)
+		file, err := os.Open(work.FullPath)
 
 		if err != nil {
 			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
@@ -71,7 +72,7 @@ func (q *Queue) matchContent() error {
 			if work.Regex.MatchString(scanner.Text()) {
 				lines = append(lines, output.Line{
 					Number: lineNumber,
-					Line:   work.Regex.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
+					Text:   work.Regex.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
 				})
 			}
 		}
@@ -80,14 +81,14 @@ func (q *Queue) matchContent() error {
 			// Completely ignore 'token too long' errors because they're usually
 			// minified frontend files we're not interested in.
 			if err != bufio.ErrTooLong {
-				fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.File, err.Error())))
+				fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.FullPath, err.Error())))
 			}
 			continue
 		}
 
 		if len(lines) > 0 {
 			q.Output.Queue <- output.Match{
-				File:  work.File,
+				File:  work.FullPath,
 				Lines: lines,
 			}
 		}

@@ -12,11 +12,11 @@ import (
 	"github.com/nomad-software/grope/sync"
 )
 
-// Queue coordinates units of work.
-type Queue struct {
+// Worker is the main path worker.
+type Worker struct {
 	Queue   chan Match
-	Content *content.Queue
-	closed  chan bool
+	Content *content.Worker
+	done    chan bool
 }
 
 // Match wraps a file path and the pattern being matched agasint it.
@@ -27,35 +27,36 @@ type Match struct {
 	Glob     string
 }
 
-// New creates a new path queue.
-func New() *Queue {
-	return &Queue{
+// New creates a new path worker. This worker will match paths against the
+// specified options and if matched, pass them to the content worker for
+// searching inside.
+func New() *Worker {
+	return &Worker{
 		Queue:   make(chan Match),
 		Content: content.New(),
-		closed:  make(chan bool),
+		done:    make(chan bool),
 	}
 }
 
 // StartQueue starts the path queue to process matches.
-func (q *Queue) StartQueue() {
+func (q *Worker) StartQueue() {
 	go q.Content.StartQueue()
 
 	sync.CreateWorkers(q.matchPaths, 100)
 
-	q.closed <- true
+	q.done <- true
 }
 
 // Stop closes the path queue.
-func (q *Queue) Stop() {
+func (q *Worker) Stop() {
 	close(q.Queue)
-	<-q.closed
+	<-q.done
 
 	q.Content.Stop()
 }
 
-// matchPaths processes path units of work and matches valid paths for further
-// content processing.
-func (q *Queue) matchPaths() error {
+// matchPaths matches file paths for further content matching.
+func (q *Worker) matchPaths() error {
 	for work := range q.Queue {
 		if work.Ignore != nil && work.Ignore.MatchString(work.FullPath) {
 			continue
@@ -69,8 +70,8 @@ func (q *Queue) matchPaths() error {
 
 		if matched {
 			q.Content.Queue <- content.Match{
-				File:  work.FullPath,
-				Regex: work.Regex,
+				FullPath: work.FullPath,
+				Regex:    work.Regex,
 			}
 		}
 	}
