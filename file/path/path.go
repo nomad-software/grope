@@ -47,12 +47,12 @@ func (q *Worker) StartQueue() {
 	q.done <- true
 }
 
-// Stop closes the path queue.
-func (q *Worker) Stop() {
+// StopQueue stops the path queue.
+func (q *Worker) StopQueue() {
 	close(q.Queue)
 	<-q.done
 
-	q.Content.Stop()
+	q.Content.StopQueue()
 }
 
 // matchPaths matches file paths for further content matching.

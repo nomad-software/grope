@@ -70,7 +70,7 @@ func (w *Walker) Walk() error {
 		return nil
 	})
 
-	w.Path.Stop()
+	w.Path.StopQueue()
 
 	return err
 }

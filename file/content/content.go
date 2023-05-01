@@ -45,12 +45,12 @@ func (q *Worker) StartQueue() {
 	q.done <- true
 }
 
-// Stop closes the content queue.
-func (q *Worker) Stop() {
+// StopQueue stops the content queue.
+func (q *Worker) StopQueue() {
 	close(q.Queue)
 	<-q.done
 
-	q.Output.Stop()
+	q.Output.StopQueue()
 }
 
 // matchContent matches content for output to the terminal.
