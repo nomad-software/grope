@@ -6,27 +6,35 @@ import (
 	"regexp"
 
 	"github.com/nomad-software/grope/cli"
+	"github.com/nomad-software/grope/cli/output"
 	"github.com/nomad-software/grope/file/path"
 )
 
 // Walker is the main file walker.
 type Walker struct {
-	Dir    string
-	Glob   string
-	Ignore *regexp.Regexp
-	Regex  *regexp.Regexp
-	Path   *path.Worker
+	Dir     string
+	Glob    string
+	Ignore  *regexp.Regexp
+	Regex   *regexp.Regexp
+	Path    *path.Worker
+	matches chan output.Match
+	errors  chan error
 }
 
 // New creates a new file walker. This walker will find valid files and pass
 // them to the path worker for matching against the supplied options.
 // This walker will skip symlinks.
 func New(opt *cli.Options) *Walker {
+	matches := make(chan output.Match)
+	errors := make(chan error)
+
 	var w = Walker{
-		Dir:   opt.Dir,
-		Glob:  opt.Glob,
-		Regex: compile(opt.Regex, opt.Case),
-		Path:  path.New(),
+		Dir:     opt.Dir,
+		Glob:    opt.Glob,
+		Regex:   compile(opt.Regex, opt.Case),
+		Path:    path.New(matches, errors),
+		matches: matches,
+		errors:  errors,
 	}
 
 	if opt.Ignore != "" {
@@ -38,10 +46,15 @@ func New(opt *cli.Options) *Walker {
 
 // Walk starts walking through the directory specified in the options and starts
 // passing valid files to the path worker.
-func (w *Walker) Walk() error {
-	go w.Path.StartQueue()
+func (w *Walker) Walk() (chan output.Match, chan error) {
+	go w.walk()
+	return w.matches, w.errors
+}
 
-	err := filepath.WalkDir(w.Dir, func(fullPath string, entry fs.DirEntry, err error) error {
+func (q *Walker) walk() {
+	go q.Path.StartQueue()
+
+	err := filepath.WalkDir(q.Dir, func(fullPath string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -60,19 +73,24 @@ func (w *Walker) Walk() error {
 			return nil
 		}
 
-		w.Path.Queue <- path.Match{
+		q.Path.Queue <- path.Match{
 			FullPath: fullPath,
-			Ignore:   w.Ignore,
-			Regex:    w.Regex,
-			Glob:     w.Glob,
+			Ignore:   q.Ignore,
+			Regex:    q.Regex,
+			Glob:     q.Glob,
 		}
 
 		return nil
 	})
 
-	w.Path.StopQueue()
+	q.Path.StopQueue()
 
-	return err
+	if err != nil {
+		q.errors <- err
+	}
+
+	close(q.errors)
+	close(q.matches)
 }
 
 // compile checks that a regex pattern compiles and then returns it.

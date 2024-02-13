@@ -2,21 +2,19 @@ package content
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"regexp"
 
-	"github.com/fatih/color"
-	"github.com/nomad-software/grope/cli"
 	"github.com/nomad-software/grope/cli/output"
 	"github.com/nomad-software/grope/sync"
 )
 
 // Worker is the main content worker.
 type Worker struct {
-	Queue  chan Match
-	Output *output.Worker
-	done   chan bool
+	Queue   chan Match
+	done    chan bool
+	matches chan output.Match
+	errors  chan error
 }
 
 // Match wraps a file path and the content pattern being matched within it.
@@ -28,20 +26,18 @@ type Match struct {
 // New creates a new content worker. This worker will match file content against
 // the specified options and if matched, pass them to the output worker for
 // printing to the terminal.
-func New() *Worker {
+func New(matches chan output.Match, errors chan error) *Worker {
 	return &Worker{
-		Queue:  make(chan Match),
-		Output: output.New(),
-		done:   make(chan bool),
+		Queue:   make(chan Match),
+		done:    make(chan bool),
+		matches: matches,
+		errors:  errors,
 	}
 }
 
 // StartQueue starts the content queue to process matches.
 func (q *Worker) StartQueue() {
-	go q.Output.StartQueue()
-
 	sync.CreateWorkers(q.matchContent, 100)
-
 	q.done <- true
 }
 
@@ -49,8 +45,6 @@ func (q *Worker) StartQueue() {
 func (q *Worker) StopQueue() {
 	close(q.Queue)
 	<-q.done
-
-	q.Output.StopQueue()
 }
 
 // matchContent matches content for output to the terminal.
@@ -59,7 +53,7 @@ func (q *Worker) matchContent() error {
 		file, err := os.Open(work.FullPath)
 
 		if err != nil {
-			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
+			q.errors <- err
 			continue
 		}
 
@@ -72,7 +66,7 @@ func (q *Worker) matchContent() error {
 			if work.Regex.MatchString(scanner.Text()) {
 				lines = append(lines, output.Line{
 					Number: lineNumber,
-					Text:   work.Regex.ReplaceAllString(scanner.Text(), color.New(color.FgHiRed, color.Bold).SprintFunc()("$0")),
+					Text:   scanner.Text(),
 				})
 			}
 		}
@@ -81,13 +75,13 @@ func (q *Worker) matchContent() error {
 			// Completely ignore 'token too long' errors because they're usually
 			// minified frontend files we're not interested in.
 			if err != bufio.ErrTooLong {
-				fmt.Fprintln(cli.Stderr, color.RedString(fmt.Sprintf("Error scanning %s - %s", work.FullPath, err.Error())))
+				q.errors <- err
 			}
 			continue
 		}
 
 		if len(lines) > 0 {
-			q.Output.Queue <- output.Match{
+			q.matches <- output.Match{
 				File:  work.FullPath,
 				Lines: lines,
 			}
