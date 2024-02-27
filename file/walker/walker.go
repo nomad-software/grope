@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/nomad-software/grope/cli"
 	"github.com/nomad-software/grope/cli/output"
 	"github.com/nomad-software/grope/file/path"
+	"github.com/nomad-software/grope/option"
 )
 
 // Walker is the main file walker.
@@ -24,14 +24,14 @@ type Walker struct {
 // New creates a new file walker. This walker will find valid files and pass
 // them to the path worker for matching against the supplied options.
 // This walker will skip symlinks.
-func New(opt *cli.Options) *Walker {
+func New(opt *option.Options) *Walker {
 	matches := make(chan output.Match)
 	errors := make(chan error)
 
 	var w = Walker{
 		Dir:     opt.Dir,
 		Glob:    opt.Glob,
-		Regex:   compile(opt.Regex, opt.Case),
+		Regex:   compile(opt.Pattern, opt.Case),
 		Path:    path.New(matches, errors),
 		matches: matches,
 		errors:  errors,

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/nomad-software/grope/cli/output"
 	"github.com/nomad-software/grope/sync"
@@ -65,7 +66,7 @@ func (q *Worker) matchContent() error {
 			lineNumber++
 			if work.Regex.MatchString(scanner.Text()) {
 				lines = append(lines, output.Line{
-					Number: lineNumber,
+					Number: strconv.Itoa(lineNumber),
 					Text:   scanner.Text(),
 				})
 			}
