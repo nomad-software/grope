@@ -10,9 +10,8 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -20,20 +19,14 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 
-	"golang.org/x/sys/internal/unsafeheader"
 	"golang.org/x/sys/windows"
 )
 
 func TestWin32finddata(t *testing.T) {
-	dir, err := ioutil.TempDir("", "go-build")
-	if err != nil {
-		t.Fatalf("failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-
-	path := filepath.Join(dir, "long_name.and_extension")
+	path := filepath.Join(t.TempDir(), "long_name.and_extension")
 	f, err := os.Create(path)
 	if err != nil {
 		t.Fatalf("failed to create %v: %v", path, err)
@@ -226,7 +219,7 @@ func TestKnownFolderPath(t *testing.T) {
 func TestRtlGetVersion(t *testing.T) {
 	version := windows.RtlGetVersion()
 	major, minor, build := windows.RtlGetNtVersionNumbers()
-	// Go is not explictly added to the application compatibility database, so
+	// Go is not explicitly added to the application compatibility database, so
 	// these two functions should return the same thing.
 	if version.MajorVersion != major || version.MinorVersion != minor || version.BuildNumber != build {
 		t.Fatalf("%d.%d.%d != %d.%d.%d", version.MajorVersion, version.MinorVersion, version.BuildNumber, major, minor, build)
@@ -570,62 +563,134 @@ func TestResourceExtraction(t *testing.T) {
 	}
 }
 
-func TestCommandLineRecomposition(t *testing.T) {
-	const (
-		maxCharsPerArg  = 35
-		maxArgsPerTrial = 80
-		doubleQuoteProb = 4
-		singleQuoteProb = 1
-		backSlashProb   = 3
-		spaceProb       = 1
-		trials          = 1000
-	)
-	randString := func(l int) []rune {
-		s := make([]rune, l)
-		for i := range s {
-			s[i] = rand.Int31()
+func FuzzComposeCommandLine(f *testing.F) {
+	f.Add(`C:\foo.exe /bar /baz "-bag qux"`)
+	f.Add(`"C:\Program Files\Go\bin\go.exe" env`)
+	f.Add(`C:\"Program Files"\Go\bin\go.exe env`)
+	f.Add(`C:\"Program Files"\Go\bin\go.exe env`)
+	f.Add(`C:\"Pro"gram Files\Go\bin\go.exe env`)
+	f.Add(``)
+	f.Add(` `)
+	f.Add(`W\"0`)
+	f.Add("\"\f")
+	f.Add("\f")
+	f.Add("\x16")
+	f.Add(`"" ` + strings.Repeat("a", 8193))
+	f.Add(strings.Repeat(`"" `, 8193))
+
+	f.Add("\x00abcd")
+	f.Add("ab\x00cd")
+	f.Add("abcd\x00")
+	f.Add("\x00abcd\x00")
+	f.Add("\x00ab\x00cd\x00")
+	f.Add("\x00\x00\x00")
+	f.Add("\x16\x00\x16")
+	f.Add(`C:\Program Files\Go\bin\go.exe` + "\x00env")
+	f.Add(`"C:\Program Files\Go\bin\go.exe"` + "\x00env")
+	f.Add(`C:\"Program Files"\Go\bin\go.exe` + "\x00env")
+	f.Add(`C:\"Pro"gram Files\Go\bin\go.exe` + "\x00env")
+	f.Add("\x00" + strings.Repeat("a", 8192))
+	f.Add("\x00" + strings.Repeat("a", 8193))
+	f.Add(strings.Repeat("\x00"+strings.Repeat("a", 8192), 4))
+
+	f.Fuzz(func(t *testing.T, s string) {
+		// DecomposeCommandLine is the “control” for our experiment:
+		// if it returns a particular list of arguments, then we know
+		// it must be possible to create an input string that produces
+		// exactly those arguments.
+		//
+		// However, DecomposeCommandLine returns an error if the string
+		// contains a NUL byte. In that case, we will fall back to
+		// strings.Split, and be a bit more permissive about the results.
+		args, err := windows.DecomposeCommandLine(s)
+		argsFromSplit := false
+
+		if err == nil {
+			if testing.Verbose() {
+				t.Logf("DecomposeCommandLine(%#q) = %#q", s, args)
+			}
+		} else {
+			t.Logf("DecomposeCommandLine: %v", err)
+			if !strings.Contains(s, "\x00") {
+				// The documentation for CommandLineToArgv takes for granted that
+				// the first argument is a valid file path, and doesn't describe any
+				// specific behavior for malformed arguments. Empirically it seems to
+				// tolerate anything we throw at it, but if we discover cases where it
+				// actually returns an error we might need to relax this check.
+				t.Fatal("(error unexpected)")
+			}
+
+			// Since DecomposeCommandLine can't handle this string,
+			// interpret it as the raw arguments to ComposeCommandLine.
+			args = strings.Split(s, "\x00")
+			argsFromSplit = true
+			for i, arg := range args {
+				if !utf8.ValidString(arg) {
+					// We need to encode the arguments as UTF-16 to pass them to
+					// CommandLineToArgvW, so skip inputs that are not valid: they might
+					// have one or more runes converted to replacement characters.
+					t.Skipf("skipping: input %d is not valid UTF-8", i)
+				}
+			}
+			if testing.Verbose() {
+				t.Logf("using input: %#q", args)
+			}
 		}
-		return s
-	}
-	mungeString := func(s []rune, char rune, timesInTen int) {
-		if timesInTen < rand.Intn(10)+1 || len(s) == 0 {
-			return
-		}
-		s[rand.Intn(len(s))] = char
-	}
-	argStorage := make([]string, maxArgsPerTrial+1)
-	for i := 0; i < trials; i++ {
-		args := argStorage[:rand.Intn(maxArgsPerTrial)+2]
-		args[0] = "valid-filename-for-arg0"
-		for j := 1; j < len(args); j++ {
-			arg := randString(rand.Intn(maxCharsPerArg + 1))
-			mungeString(arg, '"', doubleQuoteProb)
-			mungeString(arg, '\'', singleQuoteProb)
-			mungeString(arg, '\\', backSlashProb)
-			mungeString(arg, ' ', spaceProb)
-			args[j] = string(arg)
-		}
+
+		// It's ok if we compose a different command line than what was read.
+		// Just check that we are able to compose something that round-trips
+		// to the same results as the original.
 		commandLine := windows.ComposeCommandLine(args)
-		decomposedArgs, err := windows.DecomposeCommandLine(commandLine)
+		t.Logf("ComposeCommandLine(_) = %#q", commandLine)
+
+		got, err := windows.DecomposeCommandLine(commandLine)
 		if err != nil {
-			t.Errorf("Unable to decompose %#q made from %v: %v", commandLine, args, err)
-			continue
+			t.Fatalf("DecomposeCommandLine: unexpected error: %v", err)
 		}
-		if len(decomposedArgs) != len(args) {
-			t.Errorf("Incorrect decomposition length from %v to %#q to %v", args, commandLine, decomposedArgs)
-			continue
+		if testing.Verbose() {
+			t.Logf("DecomposeCommandLine(_) = %#q", got)
 		}
-		badMatches := make([]int, 0, len(args))
+
+		var badMatches []int
 		for i := range args {
-			if args[i] != decomposedArgs[i] {
+			if i >= len(got) {
+				badMatches = append(badMatches, i)
+				continue
+			}
+			want := args[i]
+			if got[i] != want {
+				if i == 0 && argsFromSplit {
+					// It is possible that args[0] cannot be encoded exactly, because
+					// CommandLineToArgvW doesn't unescape that argument in the same way
+					// as the others: since the first argument is assumed to be the name
+					// of the program itself, we only have the option of quoted or not.
+					//
+					// If args[0] contains a space or control character, we must quote it
+					// to avoid it being split into multiple arguments.
+					// If args[0] already starts with a quote character, we have no way
+					// to indicate that that character is part of the literal argument.
+					// In either case, if the string already contains a quote character
+					// we must avoid misinterpriting that character as the end of the
+					// quoted argument string.
+					//
+					// Unfortunately, ComposeCommandLine does not return an error, so we
+					// can't report existing quote characters as errors.
+					// Instead, we strip out the problematic quote characters from the
+					// argument, and quote the remainder.
+					// For paths like C:\"Program Files"\Go\bin\go.exe that is arguably
+					// what the caller intended anyway, and for other strings it seems
+					// less harmful than corrupting the subsequent arguments.
+					if got[i] == strings.ReplaceAll(want, `"`, ``) {
+						continue
+					}
+				}
 				badMatches = append(badMatches, i)
 			}
 		}
 		if len(badMatches) != 0 {
-			t.Errorf("Incorrect decomposition at indices %v from %v to %#q to %v", badMatches, args, commandLine, decomposedArgs)
-			continue
+			t.Errorf("Incorrect decomposition at indices: %v", badMatches)
 		}
-	}
+	})
 }
 
 func TestWinVerifyTrust(t *testing.T) {
@@ -657,20 +722,15 @@ func TestWinVerifyTrust(t *testing.T) {
 
 	// Now that we've verified the legitimate file verifies, let's corrupt it and see if it correctly fails.
 
-	dir, err := ioutil.TempDir("", "go-build")
-	if err != nil {
-		t.Fatalf("failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-	corruptedEvsignedfile := filepath.Join(dir, "corrupted-file")
-	evsignedfileBytes, err := ioutil.ReadFile(evsignedfile)
+	corruptedEvsignedfile := filepath.Join(t.TempDir(), "corrupted-file")
+	evsignedfileBytes, err := os.ReadFile(evsignedfile)
 	if err != nil {
 		t.Fatalf("unable to read %s bytes: %v", evsignedfile, err)
 	}
 	if len(evsignedfileBytes) > 0 {
 		evsignedfileBytes[len(evsignedfileBytes)/2-1]++
 	}
-	err = ioutil.WriteFile(corruptedEvsignedfile, evsignedfileBytes, 0755)
+	err = os.WriteFile(corruptedEvsignedfile, evsignedfileBytes, 0755)
 	if err != nil {
 		t.Fatalf("unable to write corrupted ntoskrnl.exe bytes: %v", err)
 	}
@@ -699,6 +759,28 @@ func TestWinVerifyTrust(t *testing.T) {
 		t.Errorf("unable to free verification resources: %v", closeErr)
 	}
 
+}
+
+func TestEnumProcesses(t *testing.T) {
+	var (
+		pids    [2]uint32
+		outSize uint32
+	)
+	err := windows.EnumProcesses(pids[:], &outSize)
+	if err != nil {
+		t.Fatalf("unable to enumerate processes: %v", err)
+	}
+
+	// Regression check for go.dev/issue/60223
+	if outSize != 8 {
+		t.Errorf("unexpected bytes returned: %d", outSize)
+	}
+	// Most likely, this should be [0, 4].
+	// 0 is the system idle pseudo-process. 4 is the initial system process ID.
+	// This test expects that at least one of the PIDs is not 0.
+	if pids[0] == 0 && pids[1] == 0 {
+		t.Errorf("all PIDs are 0")
+	}
 }
 
 func TestProcessModules(t *testing.T) {
@@ -838,10 +920,7 @@ func TestSystemModuleVersions(t *testing.T) {
 			return
 		}
 		mods := (*windows.RTL_PROCESS_MODULES)(unsafe.Pointer(&moduleBuffer[0]))
-		hdr := (*unsafeheader.Slice)(unsafe.Pointer(&modules))
-		hdr.Data = unsafe.Pointer(&mods.Modules[0])
-		hdr.Len = int(mods.NumberOfModules)
-		hdr.Cap = int(mods.NumberOfModules)
+		modules = unsafe.Slice(&mods.Modules[0], int(mods.NumberOfModules))
 		break
 	}
 	for i := range modules {
@@ -850,22 +929,21 @@ func TestSystemModuleVersions(t *testing.T) {
 		var zero windows.Handle
 		infoSize, err := windows.GetFileVersionInfoSize(driverPath, &zero)
 		if err != nil {
-			if err != windows.ERROR_FILE_NOT_FOUND {
-				t.Error(err)
+			if err != windows.ERROR_FILE_NOT_FOUND && err != windows.ERROR_RESOURCE_TYPE_NOT_FOUND {
+				t.Errorf("%v: %v", moduleName, err)
 			}
 			continue
 		}
 		versionInfo := make([]byte, infoSize)
-		err = windows.GetFileVersionInfo(driverPath, 0, infoSize, unsafe.Pointer(&versionInfo[0]))
-		if err != nil && err != windows.ERROR_FILE_NOT_FOUND {
-			t.Error(err)
+		if err = windows.GetFileVersionInfo(driverPath, 0, infoSize, unsafe.Pointer(&versionInfo[0])); err != nil {
+			t.Errorf("%v: %v", moduleName, err)
 			continue
 		}
 		var fixedInfo *windows.VS_FIXEDFILEINFO
 		fixedInfoLen := uint32(unsafe.Sizeof(*fixedInfo))
 		err = windows.VerQueryValue(unsafe.Pointer(&versionInfo[0]), `\`, (unsafe.Pointer)(&fixedInfo), &fixedInfoLen)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%v: %v", moduleName, err)
 			continue
 		}
 		t.Logf("%s: v%d.%d.%d.%d", moduleName,
@@ -1125,5 +1203,75 @@ items_loop:
 		default:
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestTimePeriod(t *testing.T) {
+	if err := windows.TimeBeginPeriod(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := windows.TimeEndPeriod(1); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetStartupInfo(t *testing.T) {
+	var si windows.StartupInfo
+	err := windows.GetStartupInfo(&si)
+	if err != nil {
+		// see https://go.dev/issue/31316
+		t.Fatalf("GetStartupInfo: got error %v, want nil", err)
+	}
+}
+
+func TestAddRemoveDllDirectory(t *testing.T) {
+	if _, err := exec.LookPath("gcc"); err != nil {
+		t.Skip("skipping test: gcc is missing")
+	}
+	dllSrc := `#include <stdint.h>
+#include <windows.h>
+
+uintptr_t beep(void) {
+   return 5;
+}`
+	tmpdir := t.TempDir()
+	srcname := "beep.c"
+	err := os.WriteFile(filepath.Join(tmpdir, srcname), []byte(dllSrc), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "beep.dll"
+	cmd := exec.Command("gcc", "-shared", "-s", "-Werror", "-o", name, srcname)
+	cmd.Dir = tmpdir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to build dll: %v - %v", err, string(out))
+	}
+
+	if _, err := windows.LoadLibraryEx("beep.dll", 0, windows.LOAD_LIBRARY_SEARCH_USER_DIRS); err == nil {
+		t.Fatal("LoadLibraryEx unexpectedly found beep.dll")
+	}
+
+	dllCookie, err := windows.AddDllDirectory(windows.StringToUTF16Ptr(tmpdir))
+	if err != nil {
+		t.Fatalf("AddDllDirectory failed: %s", err)
+	}
+
+	handle, err := windows.LoadLibraryEx("beep.dll", 0, windows.LOAD_LIBRARY_SEARCH_USER_DIRS)
+	if err != nil {
+		t.Fatalf("LoadLibraryEx failed: %s", err)
+	}
+
+	if err := windows.FreeLibrary(handle); err != nil {
+		t.Fatalf("FreeLibrary failed: %s", err)
+	}
+
+	if err := windows.RemoveDllDirectory(dllCookie); err != nil {
+		t.Fatalf("RemoveDllDirectory failed: %s", err)
+	}
+
+	_, err = windows.LoadLibraryEx("beep.dll", 0, windows.LOAD_LIBRARY_SEARCH_USER_DIRS)
+	if err == nil {
+		t.Fatal("LoadLibraryEx unexpectedly found beep.dll")
 	}
 }

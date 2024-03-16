@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 //go:build openbsd
-// +build openbsd
 
 // This, on the face of it, bizarre testing mechanism is necessary because
 // the only reliable way to gauge whether or not a pledge(2) call has succeeded
@@ -14,7 +13,6 @@ package unix_test
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,7 +90,7 @@ func init() {
 			os.Exit(0)
 		},
 		func() error {
-			files, err := ioutil.ReadDir(".")
+			files, err := os.ReadDir(".")
 			if err != nil {
 				return err
 			}

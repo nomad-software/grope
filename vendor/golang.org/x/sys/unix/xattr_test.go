@@ -3,13 +3,12 @@
 // license that can be found in the LICENSE file.
 
 //go:build darwin || freebsd || linux || netbsd
-// +build darwin freebsd linux netbsd
 
 package unix_test
 
 import (
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -18,7 +17,7 @@ import (
 )
 
 func TestXattr(t *testing.T) {
-	defer chtmpdir(t)()
+	chtmpdir(t)
 
 	f := "xattr1"
 	touch(t, f)
@@ -127,11 +126,10 @@ func TestXattr(t *testing.T) {
 }
 
 func TestFdXattr(t *testing.T) {
-	file, err := ioutil.TempFile("", "TestFdXattr")
+	file, err := os.Create(filepath.Join(t.TempDir(), "TestFdXattr"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(file.Name())
 	defer file.Close()
 
 	fd := int(file.Fd())

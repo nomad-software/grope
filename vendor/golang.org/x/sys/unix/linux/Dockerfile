@@ -15,15 +15,15 @@ RUN apt-get update && apt-get install -y  --no-install-recommends \
 # Get the git sources. If not cached, this takes O(5 minutes).
 WORKDIR /git
 RUN git config --global advice.detachedHead false
-# Linux Kernel: Released 19 Feb 2023
-RUN git clone --branch v6.2 --depth 1 https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux
-# GNU C library: Released 1 Feb 2022
+# Linux Kernel: Released 07 January 2024
+RUN git clone --branch v6.7 --depth 1 https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux
+# GNU C library: Released 1 Feb 2023
 RUN git clone --branch release/2.37/master --depth 1 https://sourceware.org/git/glibc.git
 
 # Get Go
-ENV GOLANG_VERSION 1.20.1
+ENV GOLANG_VERSION 1.21.0
 ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
-ENV GOLANG_DOWNLOAD_SHA256 000a5b1fca4f75895f78befeb2eecf10bfff3c428597f3f1e69133b63b911b02
+ENV GOLANG_DOWNLOAD_SHA256 d0398903a16ba2232b389fb31032ddf57cac34efda306a0eebac34f0965a0742
 
 RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
     && echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - \
@@ -52,8 +52,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Only for loong64, getting tools of qemu-user and gcc-cross-compiler
-ENV LOONG64_BASE_URL https://github.com/loongson/build-tools/releases/download/2022.09.06
-ENV LOONG64_GCC  loongarch64-clfs-6.3-cross-tools-gcc-glibc.tar.xz
+ENV LOONG64_BASE_URL https://github.com/loongson/build-tools/releases/download/2023.08.08
+ENV LOONG64_GCC  CLFS-loongarch64-8.1-x86_64-cross-tools-gcc-glibc.tar.xz
 ENV LOONG64_QEMU qemu-loongarch64
 ENV LOONG64_GCC_DOWNLOAD_URL  $LOONG64_BASE_URL/$LOONG64_GCC
 ENV LOONG64_QEMU_DOWNLOAD_URL $LOONG64_BASE_URL/$LOONG64_QEMU

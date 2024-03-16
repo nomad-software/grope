@@ -19,6 +19,69 @@ import (
 	"time"
 )
 
+type errValue struct{}
+
+func (err *errValue) Error() string {
+	return "error value"
+}
+
+func TestPanicErrorUnwrap(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name             string
+		panicValue       interface{}
+		wrappedErrorType bool
+	}{
+		{
+			name:             "panicError wraps non-error type",
+			panicValue:       &panicError{value: "string value"},
+			wrappedErrorType: false,
+		},
+		{
+			name:             "panicError wraps error type",
+			panicValue:       &panicError{value: new(errValue)},
+			wrappedErrorType: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var recovered interface{}
+
+			group := &Group{}
+
+			func() {
+				defer func() {
+					recovered = recover()
+					t.Logf("after panic(%#v) in group.Do, recovered %#v", tc.panicValue, recovered)
+				}()
+
+				_, _, _ = group.Do(tc.name, func() (interface{}, error) {
+					panic(tc.panicValue)
+				})
+			}()
+
+			if recovered == nil {
+				t.Fatal("expected a non-nil panic value")
+			}
+
+			err, ok := recovered.(error)
+			if !ok {
+				t.Fatalf("recovered non-error type: %T", recovered)
+			}
+
+			if !errors.Is(err, new(errValue)) && tc.wrappedErrorType {
+				t.Errorf("unexpected wrapped error type %T; want %T", err, new(errValue))
+			}
+		})
+	}
+}
+
 func TestDo(t *testing.T) {
 	var g Group
 	v, err, _ := g.Do("key", func() (interface{}, error) {
@@ -223,11 +286,24 @@ func TestGoexitDo(t *testing.T) {
 	}
 }
 
-func TestPanicDoChan(t *testing.T) {
-	if runtime.GOOS == "js" {
-		t.Skipf("js does not support exec")
+func executable(t testing.TB) string {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Skipf("skipping: test executable not found")
 	}
 
+	// Control case: check whether exec.Command works at all.
+	// (For example, it might fail with a permission error on iOS.)
+	cmd := exec.Command(exe, "-test.list=^$")
+	cmd.Env = []string{}
+	if err := cmd.Run(); err != nil {
+		t.Skipf("skipping: exec appears not to work on %s: %v", runtime.GOOS, err)
+	}
+
+	return exe
+}
+
+func TestPanicDoChan(t *testing.T) {
 	if os.Getenv("TEST_PANIC_DOCHAN") != "" {
 		defer func() {
 			recover()
@@ -243,7 +319,7 @@ func TestPanicDoChan(t *testing.T) {
 
 	t.Parallel()
 
-	cmd := exec.Command(os.Args[0], "-test.run="+t.Name(), "-test.v")
+	cmd := exec.Command(executable(t), "-test.run="+t.Name(), "-test.v")
 	cmd.Env = append(os.Environ(), "TEST_PANIC_DOCHAN=1")
 	out := new(bytes.Buffer)
 	cmd.Stdout = out
@@ -266,10 +342,6 @@ func TestPanicDoChan(t *testing.T) {
 }
 
 func TestPanicDoSharedByDoChan(t *testing.T) {
-	if runtime.GOOS == "js" {
-		t.Skipf("js does not support exec")
-	}
-
 	if os.Getenv("TEST_PANIC_DOCHAN") != "" {
 		blocked := make(chan struct{})
 		unblock := make(chan struct{})
@@ -297,7 +369,7 @@ func TestPanicDoSharedByDoChan(t *testing.T) {
 
 	t.Parallel()
 
-	cmd := exec.Command(os.Args[0], "-test.run="+t.Name(), "-test.v")
+	cmd := exec.Command(executable(t), "-test.run="+t.Name(), "-test.v")
 	cmd.Env = append(os.Environ(), "TEST_PANIC_DOCHAN=1")
 	out := new(bytes.Buffer)
 	cmd.Stdout = out
@@ -317,4 +389,34 @@ func TestPanicDoSharedByDoChan(t *testing.T) {
 	if !bytes.Contains(out.Bytes(), []byte("Panicking in Do")) {
 		t.Errorf("Test subprocess failed, but the crash isn't caused by panicking in Do")
 	}
+}
+
+func ExampleGroup() {
+	g := new(Group)
+
+	block := make(chan struct{})
+	res1c := g.DoChan("key", func() (interface{}, error) {
+		<-block
+		return "func 1", nil
+	})
+	res2c := g.DoChan("key", func() (interface{}, error) {
+		<-block
+		return "func 2", nil
+	})
+	close(block)
+
+	res1 := <-res1c
+	res2 := <-res2c
+
+	// Results are shared by functions executed with duplicate keys.
+	fmt.Println("Shared:", res2.Shared)
+	// Only the first function is executed: it is registered and started with "key",
+	// and doesn't complete before the second funtion is registered with a duplicate key.
+	fmt.Println("Equal results:", res1.Val.(string) == res2.Val.(string))
+	fmt.Println("Result:", res1.Val)
+
+	// Output:
+	// Shared: true
+	// Equal results: true
+	// Result: func 1
 }

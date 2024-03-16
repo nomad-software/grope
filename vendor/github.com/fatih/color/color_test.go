@@ -3,6 +3,7 @@ package color
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
@@ -416,5 +417,90 @@ func TestNoFormatString(t *testing.T) {
 		if s != test.want {
 			t.Errorf("[%d] want: %q, got: %q", i, test.want, s)
 		}
+	}
+}
+
+func TestColor_Println_Newline(t *testing.T) {
+	rb := new(bytes.Buffer)
+	Output = rb
+
+	c := New(FgRed)
+	c.Println("foo")
+
+	got := readRaw(t, rb)
+	want := "\x1b[31mfoo\x1b[0m\n"
+
+	if want != got {
+		t.Errorf("Println newline error\n\nwant: %q\n got: %q", want, got)
+	}
+}
+
+func TestColor_Sprintln_Newline(t *testing.T) {
+	c := New(FgRed)
+
+	got := c.Sprintln("foo")
+	want := "\x1b[31mfoo\x1b[0m\n"
+
+	if want != got {
+		t.Errorf("Println newline error\n\nwant: %q\n got: %q", want, got)
+	}
+}
+
+func TestColor_Fprintln_Newline(t *testing.T) {
+	rb := new(bytes.Buffer)
+	c := New(FgRed)
+	c.Fprintln(rb, "foo")
+
+	got := readRaw(t, rb)
+	want := "\x1b[31mfoo\x1b[0m\n"
+
+	if want != got {
+		t.Errorf("Println newline error\n\nwant: %q\n got: %q", want, got)
+	}
+}
+
+func readRaw(t *testing.T, r io.Reader) string {
+	t.Helper()
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(out)
+}
+
+func TestIssue206_1(t *testing.T) {
+	//visual test, go test -v .
+	//to  see the string with escape codes, use go test -v . > c:\temp\test.txt
+	var underline = New(Underline).Sprint
+
+	var line = fmt.Sprintf("%s %s %s %s", "word1", underline("word2"), "word3", underline("word4"))
+
+	line = CyanString(line)
+
+	fmt.Println(line)
+
+	var result = fmt.Sprintf("%v", line)
+	const expectedResult = "\x1b[36mword1 \x1b[4mword2\x1b[24m word3 \x1b[4mword4\x1b[24m\x1b[0m"
+
+	if !bytes.Equal([]byte(result), []byte(expectedResult)) {
+		t.Errorf("Expecting %v, got '%v'\n", expectedResult, result)
+	}
+}
+
+func TestIssue206_2(t *testing.T) {
+	var underline = New(Underline).Sprint
+	var bold = New(Bold).Sprint
+
+	var line = fmt.Sprintf("%s %s", GreenString(underline("underlined regular green")), RedString(bold("bold red")))
+
+	fmt.Println(line)
+
+	var result = fmt.Sprintf("%v", line)
+	const expectedResult = "\x1b[32m\x1b[4munderlined regular green\x1b[24m\x1b[0m \x1b[31m\x1b[1mbold red\x1b[22m\x1b[0m"
+
+	if !bytes.Equal([]byte(result), []byte(expectedResult)) {
+		t.Errorf("Expecting %v, got '%v'\n", expectedResult, result)
 	}
 }

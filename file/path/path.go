@@ -1,13 +1,11 @@
 package path
 
 import (
-	"fmt"
 	"path"
 	"path/filepath"
 	"regexp"
 
-	"github.com/fatih/color"
-	"github.com/nomad-software/grope/cli"
+	"github.com/nomad-software/grope/cli/output"
 	"github.com/nomad-software/grope/file/content"
 	"github.com/nomad-software/grope/sync"
 )
@@ -17,6 +15,7 @@ type Worker struct {
 	Queue   chan Match
 	Content *content.Worker
 	done    chan bool
+	errors  chan error
 }
 
 // Match wraps a file path and the pattern being matched agasint it.
@@ -30,11 +29,12 @@ type Match struct {
 // New creates a new path worker. This worker will match paths against the
 // specified options and if matched, pass them to the content worker for
 // searching inside.
-func New() *Worker {
+func New(matches chan output.Match, errors chan error) *Worker {
 	return &Worker{
 		Queue:   make(chan Match),
-		Content: content.New(),
+		Content: content.New(matches, errors),
 		done:    make(chan bool),
+		errors:  errors,
 	}
 }
 
@@ -64,7 +64,7 @@ func (q *Worker) matchPaths() error {
 
 		matched, err := filepath.Match(work.Glob, path.Base(work.FullPath))
 		if err != nil {
-			fmt.Fprintln(cli.Stderr, color.RedString(err.Error()))
+			q.errors <- err
 			continue
 		}
 

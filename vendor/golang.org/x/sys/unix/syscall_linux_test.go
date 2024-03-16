@@ -3,16 +3,16 @@
 // license that can be found in the LICENSE file.
 
 //go:build linux
-// +build linux
 
 package unix_test
 
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -277,9 +277,8 @@ func TestPpoll(t *testing.T) {
 		t.Skip("mkfifo syscall is not available on android, skipping test")
 	}
 
-	defer chtmpdir(t)()
-	f, cleanup := mktmpfifo(t)
-	defer cleanup()
+	chtmpdir(t)
+	f := mktmpfifo(t)
 
 	const timeout = 100 * time.Millisecond
 
@@ -335,7 +334,7 @@ func TestTime(t *testing.T) {
 }
 
 func TestUtime(t *testing.T) {
-	defer chtmpdir(t)()
+	chtmpdir(t)
 
 	touch(t, "file1")
 
@@ -444,6 +443,24 @@ func TestPselect(t *testing.T) {
 	}
 }
 
+func TestPselectWithSigmask(t *testing.T) {
+	var sigmask unix.Sigset_t
+	sigmask.Val[0] |= 1 << (uint(unix.SIGUSR1) - 1)
+	for {
+		n, err := unix.Pselect(0, nil, nil, nil, &unix.Timespec{Sec: 0, Nsec: 0}, &sigmask)
+		if err == unix.EINTR {
+			t.Logf("Pselect interrupted")
+			continue
+		} else if err != nil {
+			t.Fatalf("Pselect: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Pselect: got %v ready file descriptors, expected 0", n)
+		}
+		break
+	}
+}
+
 func TestSchedSetaffinity(t *testing.T) {
 	var newMask unix.CPUSet
 	newMask.Zero()
@@ -530,7 +547,7 @@ func TestStatx(t *testing.T) {
 		t.Fatalf("Statx: %v", err)
 	}
 
-	defer chtmpdir(t)()
+	chtmpdir(t)
 	touch(t, "file1")
 
 	var st unix.Stat_t
@@ -618,7 +635,7 @@ func stringsFromByteSlice(buf []byte) []string {
 }
 
 func TestFaccessat(t *testing.T) {
-	defer chtmpdir(t)()
+	chtmpdir(t)
 	touch(t, "file1")
 
 	err := unix.Faccessat(unix.AT_FDCWD, "file1", unix.R_OK, 0)
@@ -670,11 +687,10 @@ func TestFaccessat(t *testing.T) {
 }
 
 func TestSyncFileRange(t *testing.T) {
-	file, err := ioutil.TempFile("", "TestSyncFileRange")
+	file, err := os.Create(filepath.Join(t.TempDir(), t.Name()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(file.Name())
 	defer file.Close()
 
 	err = unix.SyncFileRange(int(file.Fd()), 0, 0, 0)
@@ -793,7 +809,7 @@ func TestOpenByHandleAt(t *testing.T) {
 			f := os.NewFile(uintptr(fd), "")
 			defer f.Close()
 
-			slurp, err := ioutil.ReadAll(f)
+			slurp, err := io.ReadAll(f)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -968,13 +984,7 @@ func TestOpenat2(t *testing.T) {
 	}
 
 	// prepare
-	tempDir, err := ioutil.TempDir("", t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	subdir := filepath.Join(tempDir, "dir")
+	subdir := filepath.Join(t.TempDir(), "dir")
 	if err := os.Mkdir(subdir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -1012,12 +1022,12 @@ func TestOpenat2(t *testing.T) {
 }
 
 func TestIoctlFileDedupeRange(t *testing.T) {
-	f1, err := ioutil.TempFile("", t.Name())
+	dir := t.TempDir()
+	f1, err := os.Create(filepath.Join(dir, "f1"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f1.Close()
-	defer os.Remove(f1.Name())
 
 	// Test deduplication with two blocks of zeros
 	data := make([]byte, 4096)
@@ -1029,12 +1039,11 @@ func TestIoctlFileDedupeRange(t *testing.T) {
 		}
 	}
 
-	f2, err := ioutil.TempFile("", t.Name())
+	f2, err := os.Create(filepath.Join(dir, "f2"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f2.Close()
-	defer os.Remove(f2.Name())
 
 	for i := 0; i < 2; i += 1 {
 		// Make the 2nd block different
@@ -1172,4 +1181,43 @@ func TestReadvAllocate(t *testing.T) {
 	test("Preadv2", func(fd int) {
 		unix.Preadv2(fd, iovs, 0, 0)
 	})
+}
+
+func TestSockaddrALG(t *testing.T) {
+	// Open a socket to perform SHA1 hashing.
+	fd, err := unix.Socket(unix.AF_ALG, unix.SOCK_SEQPACKET, 0)
+	if err != nil {
+		t.Skip("socket(AF_ALG):", err)
+	}
+	defer unix.Close(fd)
+	addr := &unix.SockaddrALG{Type: "hash", Name: "sha1"}
+	if err := unix.Bind(fd, addr); err != nil {
+		t.Fatal("bind:", err)
+	}
+	// Need to call accept(2) with the second and third arguments as 0,
+	// which is not possible via unix.Accept, thus the use of unix.Syscall.
+	hashfd, _, errno := unix.Syscall6(unix.SYS_ACCEPT4, uintptr(fd), 0, 0, 0, 0, 0)
+	if errno != 0 {
+		t.Fatal("accept:", errno)
+	}
+
+	hash := os.NewFile(hashfd, "sha1")
+	defer hash.Close()
+
+	// Hash an input string and read the results.
+	const (
+		input = "Hello, world."
+		exp   = "2ae01472317d1935a84797ec1983ae243fc6aa28"
+	)
+	if _, err := hash.WriteString(input); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, 20)
+	if _, err := hash.Read(b); err != nil {
+		t.Fatal(err)
+	}
+	got := hex.EncodeToString(b)
+	if got != exp {
+		t.Fatalf("got: %q, want: %q", got, exp)
+	}
 }

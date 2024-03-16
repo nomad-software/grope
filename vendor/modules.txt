@@ -1,20 +1,57 @@
-# github.com/fatih/color v1.15.0
+# github.com/fatih/color v1.16.0
 ## explicit; go 1.17
 github.com/fatih/color
 # github.com/mattn/go-colorable v0.1.13
 ## explicit; go 1.15
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.18
+# github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
-# golang.org/x/sync v0.1.0
-## explicit
+# github.com/nomad-software/goat v0.0.0-20240310163328-b34c1d9bd15f
+## explicit; go 1.21.3
+github.com/nomad-software/goat/app
+github.com/nomad-software/goat/command
+github.com/nomad-software/goat/dialog/button
+github.com/nomad-software/goat/dialog/directorydialog
+github.com/nomad-software/goat/dialog/icon
+github.com/nomad-software/goat/dialog/messagedialog
+github.com/nomad-software/goat/dialog/type
+github.com/nomad-software/goat/image
+github.com/nomad-software/goat/internal/log
+github.com/nomad-software/goat/internal/tk
+github.com/nomad-software/goat/internal/tk/variable
+github.com/nomad-software/goat/internal/widget/ui
+github.com/nomad-software/goat/internal/widget/ui/element
+github.com/nomad-software/goat/internal/widget/ui/element/hash
+github.com/nomad-software/goat/option/anchor
+github.com/nomad-software/goat/option/color
+github.com/nomad-software/goat/option/fill
+github.com/nomad-software/goat/option/relief
+github.com/nomad-software/goat/option/side
+github.com/nomad-software/goat/option/state
+github.com/nomad-software/goat/option/underline
+github.com/nomad-software/goat/option/wrapmode
+github.com/nomad-software/goat/widget
+github.com/nomad-software/goat/widget/button
+github.com/nomad-software/goat/widget/checkbutton
+github.com/nomad-software/goat/widget/entry
+github.com/nomad-software/goat/widget/frame
+github.com/nomad-software/goat/widget/label
+github.com/nomad-software/goat/widget/labelframe
+github.com/nomad-software/goat/widget/menu
+github.com/nomad-software/goat/widget/scrollbar
+github.com/nomad-software/goat/widget/sizegrip
+github.com/nomad-software/goat/widget/text
+github.com/nomad-software/goat/widget/text/tag
+github.com/nomad-software/goat/window
+github.com/nomad-software/goat/window/protocol
+# golang.org/x/sync v0.6.0
+## explicit; go 1.18
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.7.0
-## explicit; go 1.17
-golang.org/x/sys/internal/unsafeheader
+# golang.org/x/sys v0.18.0
+## explicit; go 1.18
 golang.org/x/sys/unix
 golang.org/x/sys/windows
