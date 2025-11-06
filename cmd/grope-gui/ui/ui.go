@@ -65,7 +65,8 @@ func createUI(opts *option.Options) {
 	sizegrip := sizegrip.New(main)
 	sizegrip.Pack(0, 0, side.Bottom, fill.None, anchor.SouthEast, false)
 
-	optFrame := frame.New(main, 2, relief.Groove)
+	optFrame := labelframe.New(main, "Options", underline.None)
+	optFrame.SetPadding(5)
 	optFrame.Pack(10, 3, side.Top, fill.Horizontal, anchor.Center, false)
 	optFrame.SetGridColumnWeight(1, 1)
 
@@ -115,9 +116,18 @@ func createUI(opts *option.Options) {
 		observeCase.Check()
 	}
 
+	// editorLabel := label.New(optFrame)
+	// editorLabel.Grid(0, 3, 5, 0, 1, 1, "w")
+	// editorLabel.SetText("Edit command")
+	// editorLabel.SetWidth(12)
+	//
+	// editCmd = entry.New(optFrame)
+	// editCmd.Grid(1, 3, 5, 0, 4, 1, "ew")
+	// editCmd.SetValue(opts.EditCmd)
+
 	resultFrame := labelframe.New(main, "Results", underline.None)
 	resultFrame.Pack(10, 0, side.Bottom, fill.Both, anchor.Center, true)
-	resultFrame.SetPadding(5)
+	resultFrame.SetPadding(10)
 	resultFrame.SetGridColumnWeight(0, 1)
 	resultFrame.SetGridRowWeight(0, 1)
 
@@ -148,7 +158,7 @@ func createUI(opts *option.Options) {
 	searchButton.SetCommand(handleSearch)
 
 	createWindowBinds(main, opts)
-	createMenu(main)
+	createMenu(main, opts)
 	configureResultTags(results)
 
 	app.Start()
@@ -172,17 +182,21 @@ func updateOptions(opts *option.Options) {
 
 func createWindowBinds(win *window.Window, opts *option.Options) {
 	win.Bind("<Control-KeyPress-q>", func(*command.BindData) {
+		updateOptions(opts)
 		win.Destroy()
 	})
 	win.Bind("<KeyPress-Escape>", func(*command.BindData) {
+		updateOptions(opts)
 		win.Destroy()
 	})
 
 	win.Bind("<KeyPress-Return>", func(*command.BindData) {
+		updateOptions(opts)
 		handleSearch(nil)
 	})
 
 	win.Bind("<F1>", func(*command.BindData) {
+		updateOptions(opts)
 		showAboutDialog(win)
 	})
 
@@ -192,7 +206,7 @@ func createWindowBinds(win *window.Window, opts *option.Options) {
 	})
 }
 
-func createMenu(win *window.Window) {
+func createMenu(win *window.Window, opts *option.Options) {
 	bar := menu.NewBar(win)
 
 	file := menu.New(bar, "File", underline.None)
@@ -202,7 +216,8 @@ func createMenu(win *window.Window) {
 
 	file.AddSeparator()
 
-	file.AddEntry("Quit", "Ctrl-Q, Esc", func(*command.CommandData) {
+	file.AddEntry("Quit", "Ctrl-Q, Esc", func(cmd *command.CommandData) {
+		updateOptions(opts)
 		win.Destroy()
 	})
 
@@ -304,7 +319,7 @@ func handleResultsDoubleClick(data *command.BindData) {
 	pos := el.GetInsertPos()
 
 	if val, ok := lines[pos[0]]; ok {
-		cmd := exec.Command("/opt/neovide/neovide", val.File, "+"+val.LineNumber)
+		cmd := exec.Command("neovide", val.File, "+"+val.LineNumber)
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
