@@ -1,8 +1,8 @@
-# github.com/fatih/color v1.16.0
+# github.com/fatih/color v1.18.0
 ## explicit; go 1.17
 github.com/fatih/color
-# github.com/mattn/go-colorable v0.1.13
-## explicit; go 1.15
+# github.com/mattn/go-colorable v0.1.14
+## explicit; go 1.18
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
@@ -10,7 +10,7 @@ github.com/mattn/go-isatty
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
-# github.com/nomad-software/goat v0.0.0-20240310163328-b34c1d9bd15f
+# github.com/nomad-software/goat v0.0.0-20251106184535-15f932468e2d
 ## explicit; go 1.21.3
 github.com/nomad-software/goat/app
 github.com/nomad-software/goat/command
@@ -48,10 +48,10 @@ github.com/nomad-software/goat/widget/text
 github.com/nomad-software/goat/widget/text/tag
 github.com/nomad-software/goat/window
 github.com/nomad-software/goat/window/protocol
-# golang.org/x/sync v0.6.0
-## explicit; go 1.18
+# golang.org/x/sync v0.17.0
+## explicit; go 1.24.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.18.0
-## explicit; go 1.18
+# golang.org/x/sys v0.37.0
+## explicit; go 1.24.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows

@@ -40,7 +40,7 @@ const TempDir = "/tmp"
 
 const GOOS = "linux"       // Only for Linux targets
 const BuildArch = "amd64"  // Must be built on this architecture
-const MinKernel = "2.6.23" // https://golang.org/doc/install#requirements
+const MinKernel = "2.6.32" // https://go.dev/wiki/MinimumRequirements#linuxlinux
 
 type target struct {
 	GoArch     string // Architecture name according to Go
@@ -417,6 +417,20 @@ func (t *target) makeHeaders() error {
 	} else {
 		glibcArgs = append(glibcArgs, "--enable-kernel="+MinKernel)
 	}
+
+	// CET is not supported on x86 but glibc 2.39 enables it by default, it was later reverted.
+	// See https://sourceware.org/git/?p=glibc.git;a=commit;h=25f1e16ef03a6a8fb1701c4647d46c564480d88c
+	if t.LinuxArch == "x86" {
+		glibcArgs = append(glibcArgs, "--enable-cet=no")
+	}
+
+	// glibc 2.38 requires libmvec to be disabled explicitly in aarch64
+	// since the installed compiler does not have SVE ACLE.
+	// See https://sourceware.org/pipermail/libc-alpha/2023-May/147829.html
+	if t.LinuxArch == "arm64" {
+		glibcArgs = append(glibcArgs, "--disable-mathvec")
+	}
+
 	glibcConf := t.makeCommand(confScript, glibcArgs...)
 
 	glibcConf.Dir = buildDir

@@ -1,13 +1,12 @@
 package tk
 
 /*
-#cgo CFLAGS: -I/usr/include/tcl/
 #cgo LDFLAGS: -ltcl
 #cgo LDFLAGS: -ltk
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <tcl/tk.h>
+#include <tk.h>
 
 #if _WIN32
 	int __declspec(dllexport) procWrapper(ClientData clientData, Tcl_Interp* interp, int argc, char** argv);

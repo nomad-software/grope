@@ -44,11 +44,9 @@ sudo apt install tcl-dev tk-dev
 #### MacOS
 
 ```bash
-brew install --cask xquartz
 brew install tcl-tk
 ```
 
-* https://formulae.brew.sh/cask/xquartz
 * https://formulae.brew.sh/formula/tcl-tk
 
 This is completely untested!
