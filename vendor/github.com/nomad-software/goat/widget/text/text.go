@@ -79,8 +79,8 @@ func (el *Text) SetWrapMode(mode string) {
 
 // AppendText appends text to the end.
 func (el *Text) AppendText(text string) {
-	text = strings.ReplaceAll(text, "$", `\$`)
 	text = strings.ReplaceAll(text, "\\", `\\`)
+	text = strings.ReplaceAll(text, "$", `\$`)
 
 	text = strings.ReplaceAll(text, "{", `\{`)
 	text = strings.ReplaceAll(text, "}", `\}`)
@@ -93,8 +93,8 @@ func (el *Text) AppendText(text string) {
 
 // AppendLine appends text to the end and adds a newline.
 func (el *Text) AppendLine(text string) {
-	text = strings.ReplaceAll(text, "$", `\$`)
 	text = strings.ReplaceAll(text, "\\", `\\`)
+	text = strings.ReplaceAll(text, "$", `\$`)
 
 	text = strings.ReplaceAll(text, "{", `\{`)
 	text = strings.ReplaceAll(text, "}", `\}`)
@@ -107,8 +107,8 @@ func (el *Text) AppendLine(text string) {
 
 // InsertText inserts text at the specified line and character.
 func (el *Text) InsertText(line, char int, text string) {
-	text = strings.ReplaceAll(text, "$", `\$`)
 	text = strings.ReplaceAll(text, "\\", `\\`)
+	text = strings.ReplaceAll(text, "$", `\$`)
 
 	text = strings.ReplaceAll(text, "{", `\{`)
 	text = strings.ReplaceAll(text, "}", `\}`)

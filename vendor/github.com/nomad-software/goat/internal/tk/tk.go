@@ -1,12 +1,23 @@
 package tk
 
 /*
+#cgo CFLAGS: -I/usr/include/tcl/
 #cgo LDFLAGS: -ltcl
 #cgo LDFLAGS: -ltk
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <tk.h>
+
+#if __has_include(<tcl/tk.h>)
+  #include <tcl/tk.h>
+
+#elif __has_include(<tk.h>)
+  #include <tk.h>
+
+#else
+  #error "tk.h not found"
+
+#endif
 
 #if _WIN32
 	int __declspec(dllexport) procWrapper(ClientData clientData, Tcl_Interp* interp, int argc, char** argv);
@@ -26,9 +37,11 @@ import "C"
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"runtime/cgo"
 	"strconv"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/nomad-software/goat/command"
@@ -39,6 +52,7 @@ import (
 var (
 	// Global interpreter instance.
 	instance *Tk
+	once     sync.Once
 
 	Binding      = regexp.MustCompile(`^<.*?>$`)
 	Event        = regexp.MustCompile(`^<.*?>$`)
@@ -47,11 +61,9 @@ var (
 
 // Get gets the global instance of the interpreter.
 func Get() *Tk {
-	if instance != nil {
-		return instance
-	}
-
-	instance = new()
+	once.Do(func() {
+		instance = new()
+	})
 
 	return instance
 }
@@ -64,6 +76,8 @@ type Tk struct {
 // new creates a new instance of the interpreter.
 // This will end the program on any error.
 func new() *Tk {
+	runtime.LockOSThread() // Lock Tcl/Tk calls to one thread.
+
 	log.Info("creating new interpreter")
 
 	tk := &Tk{
@@ -101,6 +115,8 @@ func (tk *Tk) Destroy() {
 	log.Info("deleting the interpreter")
 	C.Tcl_DeleteInterp(tk.interpreter)
 	instance = nil
+
+	runtime.UnlockOSThread() // Unlock the Tcl/Tk thread.
 }
 
 // Eval passes the specified command to the interpreter for evaluation.

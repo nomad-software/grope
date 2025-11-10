@@ -10,7 +10,7 @@ github.com/mattn/go-isatty
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
-# github.com/nomad-software/goat v0.0.0-20251106184535-15f932468e2d
+# github.com/nomad-software/goat v0.0.0-20251110183153-2d1a46096f17
 ## explicit; go 1.21.3
 github.com/nomad-software/goat/app
 github.com/nomad-software/goat/command
@@ -48,10 +48,10 @@ github.com/nomad-software/goat/widget/text
 github.com/nomad-software/goat/widget/text/tag
 github.com/nomad-software/goat/window
 github.com/nomad-software/goat/window/protocol
-# golang.org/x/sync v0.17.0
+# golang.org/x/sync v0.18.0
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.37.0
+# golang.org/x/sys v0.38.0
 ## explicit; go 1.24.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
